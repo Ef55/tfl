@@ -1,6 +1,6 @@
 #include <catch2/catch.hpp>
 
-#include "lexer/Lexer.hpp"
+#include "tfl/Lexer.hpp"
 
 #include <variant>
 

@@ -1,6 +1,6 @@
 #include <catch2/catch.hpp>
 
-#include "lexer/Regex.hpp"
+#include "tfl/Regex.hpp"
 
 using Regex = tfl::Regex<char>;
 
