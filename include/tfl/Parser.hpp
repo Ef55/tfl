@@ -3,6 +3,7 @@
 #include <vector>
 #include <memory>
 #include <functional>
+#include <type_traits>
 
 namespace tfl {
 
@@ -154,6 +155,8 @@ namespace tfl {
         Parser(Private::ParserImpl<T, R>* ptr): _parser(ptr) {}
 
     public:
+        using TokenType = T;
+        using ValueType = R;
 
         Result apply(It const& beg, It const& end) const {
             return _parser->apply(beg, end);
@@ -220,12 +223,55 @@ namespace tfl {
         template<
             typename F, 
             typename = std::enable_if_t<
-                std::is_same_v< decltype(std::declval<F>()()), Parser>
+                std::is_convertible_v<F, std::function<Parser()>>
             >
         >
-        Parser(F&& rec): _parser(new Private::Recursion<T, R>(std::forward<F>(rec))) {}
+        static Parser recursive(F&& rec) {
+            return Parser<T, R>(new Private::Recursion<T, R>(std::forward<F>(rec)));
+        }
     };
+}
 
-    
+template<
+    typename T,
+    typename R,
+    typename F, 
+    typename = std::enable_if_t<
+        std::is_convertible_v<F, std::function<tfl::Parser<T, R>()>>
+    >
+>
+tfl::Parser<T, R> operator|(F&& l, tfl::Parser<T, R> const& r) {
+    return tfl::Parser<T, R>::recursive(std::forward<F>(l)) | r;
+}
 
+template<
+    typename T,
+    typename R,
+    typename F, 
+    typename = std::enable_if_t<
+        std::is_convertible_v<F, std::function<tfl::Parser<T, R>()>>
+    >
+>
+tfl::Parser<T, R> operator|(tfl::Parser<T, R> const& l, F&& r) {
+    return l | tfl::Parser<T, R>::recursive(std::forward<F>(r));
+}
+
+template<
+    typename T,
+    typename R2,
+    typename F,
+    typename R1 = typename decltype(std::declval<F>()())::ValueType
+>
+tfl::Parser<T, std::pair<R1, R2>> operator&(F&& l, tfl::Parser<T, R2> const& r) {
+    return tfl::Parser<T, R1>::recursive(std::forward<F>(l)) & r;
+}
+
+template<
+    typename T,
+    typename R1,
+    typename F,
+    typename R2 = typename decltype(std::declval<F>()())::ValueType
+>
+tfl::Parser<T, std::pair<R1, R2>> operator&(tfl::Parser<T, R1> const& l, F&& r) {
+    return l & tfl::Parser<T, R2>::recursive(std::forward<F>(r));
 }

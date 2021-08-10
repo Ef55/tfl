@@ -1,7 +1,9 @@
 #include <catch2/catch.hpp>
 
 #include "tfl/Parser.hpp"
+
 #include <functional>
+#include <type_traits>
 
 template<typename R>
 using Parser = tfl::Parser<char, R>;
@@ -65,16 +67,33 @@ TEST_CASE("Parser input tests") {
     }
 
     SECTION("Recursion") {
-        std::function<Parser<int>()> parser = [&parser](){
+        static std::function<Parser<int>()> parser = [](){
             return Parser<int>::eps([](){ return 0; }) | 
-            (Parser<char>::elem([](char c){ return true; }) & Parser<int>(parser))
+            (Parser<char>::elem([](char c){ return true; }) & parser)
                 .map([](std::pair<char, char> pair)->int{ return pair.first + pair.second; });
         };
-        Parser<int> p = parser;
+        Parser<int> p = Parser<int>::recursive(parser);
 
         CHECK( p({}) == std::vector<int>{0} );
         CHECK( p({1}) == std::vector<int>{1} );
         CHECK( p({1, 10}) == std::vector<int>{11} );
         CHECK( p({1, 10, 100}) == std::vector<int>{111} );
+    }
+}
+
+TEST_CASE("Recursion operators") {
+    Parser<char> pc = Parser<char>::eps([](){ return 'a'; });
+    Parser<int> pi = Parser<int>::eps([](){ return 0; });
+    static std::function<Parser<char>()> rec = [](){ return rec(); };
+
+
+    SECTION("Disjunction") {
+        STATIC_REQUIRE( std::is_same_v<decltype(pc | rec), Parser<char>> );
+        STATIC_REQUIRE( std::is_same_v<decltype(rec | pc), Parser<char>> );
+    }
+
+    SECTION("Sequence") {
+        STATIC_REQUIRE( std::is_same_v<decltype(pi & rec), Parser<std::pair<int, char>>> );
+        STATIC_REQUIRE( std::is_same_v<decltype(rec & pi), Parser<std::pair<char, int>>> );
     }
 }
