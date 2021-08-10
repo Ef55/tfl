@@ -3,6 +3,7 @@ set(TEST_SRC
     "lexer/Lexer.cpp"
     "lexer/Regex.cpp"
     "lexer/RegexDerivation.cpp"
+    "parser/Parser.cpp"
 )
 
 add_executable("Tests" ${TEST_SRC})
