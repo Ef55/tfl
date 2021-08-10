@@ -125,7 +125,20 @@ namespace tfl {
             }
         };
 
-        // class Variable
+        template<typename T, typename R>
+        class Recursion: public ParserImpl<T, R> {
+            std::function<Parser<T, R>()> _rec;
+        public:
+            using Result = typename ParserImpl<T, R>::Result;
+            using It = typename ParserImpl<T, R>::It;
+
+            template<typename F>
+            Recursion(F&& rec): _rec(std::forward<F>(rec)) {}
+
+            virtual Result apply(It const& beg, It const& end) const {
+                return _rec().apply(beg, end);
+            }
+        };
     };
 
 
@@ -203,6 +216,14 @@ namespace tfl {
                 )
             );
         }
+
+        template<
+            typename F, 
+            typename = std::enable_if_t<
+                std::is_same_v< decltype(std::declval<F>()()), Parser>
+            >
+        >
+        Parser(F&& rec): _parser(new Private::Recursion<T, R>(std::forward<F>(rec))) {}
     };
 
     
