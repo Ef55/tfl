@@ -19,6 +19,8 @@ namespace tfl {
     template<typename T, typename R> class Recursive;
     
     class ParserImpl {
+        ParserImpl() = delete;
+
         template<typename T, typename R> friend class Parser;
 
         template<typename T, typename R>

@@ -68,7 +68,8 @@ namespace tfl {
         class Literal: public RegexBase {
             std::function<bool(T)> const _pred;
         public:
-            Literal(std::function<bool(T)> const& predicate): _pred(predicate) {}
+            template<typename F, typename = std::enable_if_t<std::is_convertible_v<F, std::function<bool(T)>>>>
+            Literal(F&& predicate): _pred(std::forward<F>(predicate)) {}
 
             virtual Regex<T> derive(T const& x) const {
                 return _pred(x) ?
@@ -209,9 +210,9 @@ namespace tfl {
             return Regex(new Literal([lit](T const& elem){ return elem == lit; }));
         }
 
-        template<typename F>
-        static Regex literal(F predicate) {
-            return Regex(new Literal(predicate));
+        template<typename F, typename = std::enable_if_t<std::is_convertible_v<F, std::function<bool(T)>>>>
+        static Regex literal(F&& predicate) {
+            return Regex(new Literal(std::forward<F>(predicate)));
         }
 
         Regex operator| (Regex const& that) const {
@@ -249,7 +250,27 @@ namespace tfl {
 
     template<typename T>
     struct Regexes {
-        Regexes() = delete;
+    protected:
+        Regexes() = default;
+
+    public:
+
+        static Regex<T> empty() {
+            return Regex<T>::empty();
+        }
+
+        static Regex<T> epsilon() {
+            return Regex<T>::epsilon();
+        }
+
+        static Regex<T> literal(T const& lit) {
+            return Regex<T>::literal(lit);
+        }
+
+        template<typename F, typename = std::enable_if_t<std::is_convertible_v<F, std::function<bool(T)>>>>
+        static Regex<T> literal(F&& predicate) {
+            return Regex<T>::literal(std::forward<F>(predicate));
+        }
 
         template<class Container>
         static Regex<T> word(Container const& container) {
