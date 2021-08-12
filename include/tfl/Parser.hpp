@@ -5,6 +5,8 @@
 #include <functional>
 #include <type_traits>
 #include <optional>
+#include <variant>
+#include <tuple>
 
 namespace tfl {
 
@@ -304,6 +306,9 @@ namespace tfl {
         static constexpr auto reverse = [](auto ls){ decltype(ls) r(ls.rbegin(), ls.rend()); return r; };
         static constexpr auto drop_left = [](auto p){ return p.second; };
 
+        template<typename W, typename E>
+        static constexpr auto wrap = [](E&& e){ return W{std::forward<E>(e)}; };
+
     public:
         template<typename F>
         static Parser<T, T> elem(F&& predicate) {
@@ -335,6 +340,11 @@ namespace tfl {
         template<typename R>
         static Recursive<T, R> recursive() {
             return Recursive<T, R>();
+        }
+
+        template<typename R>
+        static Parser<T, std::optional<R>> opt(Parser<T, R> p) {
+            return eps(std::optional<R>(std::nullopt)) | p.map(wrap<std::optional<R>, R>);
         }
 
         template<
@@ -370,7 +380,7 @@ namespace tfl {
             typename S,
             typename Result = std::vector<R>
         >
-        static Parser<T, Result> repsep(Parser<T, R> const& elem, Parser<T, S> const& sep) {
+        static Parser<T, Result> repsep1(Parser<T, R> const& elem, Parser<T, S> const& sep) {
             Recursive<T, Result> rec;
             rec = 
                 eps(Result{}) |
@@ -379,8 +389,25 @@ namespace tfl {
                     & rec
                 ).map(right_pushback_left);
 
-            return eps(Result{}) | (elem & rec).map(right_pushback_left).map(reverse);
+            return (elem & rec).map(right_pushback_left).map(reverse);
         }
+
+        template<
+            typename R,
+            typename S,
+            typename Result = std::vector<R>
+        >
+        static Parser<T, Result> repsep(Parser<T, R> const& elem, Parser<T, S> const& sep) {
+            return eps(Result{}) | repsep1(elem, sep);
+        }
+
+        template<typename R, typename... Types>
+        static Parser<T, std::variant<R, Types...>> either(Parser<T, R> const& p, Parser<T, Types>... others) {
+            return (p.map(wrap<std::variant<R, Types...>, R>) | ... | others.map(wrap<std::variant<R, Types...>, Types>));
+        }
+
+        // template<typename R, typename... Types>
+        // static Parser<T, std::tuple<R, Types...>> sequence(Parser<T, R> const& p, Parser<T, Types>... others) {}
 
     protected:
         Parsers() {}
