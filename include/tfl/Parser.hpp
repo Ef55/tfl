@@ -18,27 +18,29 @@ namespace tfl {
     template<typename T, typename R> class Parser;
     template<typename T, typename R> class Recursive;
     
-    class Private {
+    class ParserImpl {
         template<typename T, typename R> friend class Parser;
 
         template<typename T, typename R>
-        class ParserImpl {
+        class ParserBase {
             friend class Parser<T, R>;
-            protected:
+
+        protected:
             using It = typename std::vector<T>::const_iterator;
             using Result = std::vector<std::pair<R, It>>;
 
         public:
-            virtual ~ParserImpl() = default;
+            virtual ~ParserBase() = default;
             virtual std::vector<std::pair<R, It>> apply(It const& beg, It const& end) const = 0;
         };
 
         template<typename T>
-        class Elem: public ParserImpl<T, T> {
+        class Elem final: public ParserBase<T, T> {
             std::function<bool(T const&)> const _pred;
+
         public:
-            using Result = typename ParserImpl<T, T>::Result;
-            using It = typename ParserImpl<T, T>::It;
+            using Result = typename ParserBase<T, T>::Result;
+            using It = typename ParserBase<T, T>::It;
 
             template<typename F>
             Elem(F&& predicate): _pred(predicate) {}
@@ -49,11 +51,12 @@ namespace tfl {
         };
 
         template<typename T, typename R>
-        class Epsilon: public ParserImpl<T, R> {
+        class Epsilon final: public ParserBase<T, R> {
             std::function<R()> const _gen;
+
         public:
-            using Result = typename ParserImpl<T, R>::Result;
-            using It = typename ParserImpl<T, R>::It;
+            using Result = typename ParserBase<T, R>::Result;
+            using It = typename ParserBase<T, R>::It;
 
             template<typename F>
             Epsilon(F&& generator): _gen(std::forward<F>(generator)) {}
@@ -64,13 +67,13 @@ namespace tfl {
         };
 
         template<typename T, typename R>
-        class Disjunction: public ParserImpl<T, R> {
+        class Disjunction final: public ParserBase<T, R> {
             Parser<T, R> const _left;
             Parser<T, R> const _right;
 
         public:
-            using Result = typename ParserImpl<T, R>::Result;
-            using It = typename ParserImpl<T, R>::It;
+            using Result = typename ParserBase<T, R>::Result;
+            using It = typename ParserBase<T, R>::It;
 
             Disjunction(Parser<T, R> const& left, Parser<T, R> const& right): _left(left), _right(right) {}
 
@@ -84,13 +87,13 @@ namespace tfl {
         };
 
         template<typename T, typename R1, typename R2, typename R = std::pair<R1, R2>>
-        class Sequence: public ParserImpl<T, R> {
+        class Sequence final: public ParserBase<T, R> {
             Parser<T, R1> const _left;
             Parser<T, R2> const _right;
 
         public:
-            using Result = typename ParserImpl<T, R>::Result;
-            using It = typename ParserImpl<T, R>::It;
+            using Result = typename ParserBase<T, R>::Result;
+            using It = typename ParserBase<T, R>::It;
 
             Sequence(Parser<T, R1> const& left, Parser<T, R2> const& right): _left(left), _right(right) {}
 
@@ -112,13 +115,13 @@ namespace tfl {
         };
 
         template<typename T, typename R, typename U>
-        class Map: public ParserImpl<T, R> {
+        class Map final: public ParserBase<T, R> {
             Parser<T, U> const _underlying;
             std::function<R(U)> const _map;
 
         public:
-            using Result = typename ParserImpl<T, R>::Result;
-            using It = typename ParserImpl<T, R>::It;
+            using Result = typename ParserBase<T, R>::Result;
+            using It = typename ParserBase<T, R>::It;
 
             template<typename F>
             Map(Parser<T, U> const& underlying, F&& map): _underlying(underlying), _map(map) {}
@@ -137,15 +140,16 @@ namespace tfl {
         };
 
         template<typename T, typename R>
-        class Recursion: public ParserImpl<T, R> {
-            std::weak_ptr<ParserImpl<T, R>> _rec;
+        class Recursion final: public ParserBase<T, R> {
+            std::weak_ptr<ParserBase<T, R>> _rec;
+
         public:
-            using Result = typename ParserImpl<T, R>::Result;
-            using It = typename ParserImpl<T, R>::It;
+            using Result = typename ParserBase<T, R>::Result;
+            using It = typename ParserBase<T, R>::It;
 
             Recursion(): _rec() {}
 
-            void init(std::shared_ptr<ParserImpl<T, R>> const& ptr) {
+            void init(std::shared_ptr<ParserBase<T, R>> const& ptr) {
                 _rec = ptr;
             }
 
@@ -166,13 +170,13 @@ namespace tfl {
         template<typename, typename> friend class Parser;
         template<typename, typename> friend class Recursive;
 
-        using Result = typename Private::ParserImpl<T, R>::Result;
-        using It = typename Private::ParserImpl<T, R>::It;
+        using Result = typename ParserImpl::ParserBase<T, R>::Result;
+        using It = typename ParserImpl::ParserBase<T, R>::It;
 
-        std::shared_ptr<Private::ParserImpl<T, R>> _parser;
+        std::shared_ptr<ParserImpl::ParserBase<T, R>> _parser;
 
-        Parser(Private::ParserImpl<T, R>* ptr): _parser(ptr) {}
-        Parser(std::shared_ptr<Private::ParserImpl<T, R>> ptr): _parser(ptr) {}
+        Parser(ParserImpl::ParserBase<T, R>* ptr): _parser(ptr) {}
+        Parser(std::shared_ptr<ParserImpl::ParserBase<T, R>> ptr): _parser(ptr) {}
 
     public:
         using TokenType = T;
@@ -184,13 +188,10 @@ namespace tfl {
 
         template<typename Iter>
         R operator()(Iter const& beg, Iter const& end) const {
-            auto r = parseAll(beg, end);
+            auto r = parser_all(beg, end);
 
-            if(r.empty()) {
-                throw ParsingException("Parsing failed: no match.");
-            }
-            else if(r.size() > 1) {
-                throw ParsingException("Parsing failed: ambiguous.");
+            if(r.size() != 1) {
+                throw ParsingException("Parsing failed: " + std::to_string(r.size()) + " match(es).");
             }
             else {
                 return r[0];
@@ -202,7 +203,7 @@ namespace tfl {
         }   
 
         template<typename Iter>
-        std::vector<R> parseAll(Iter const& beg, Iter const& end) const {
+        std::vector<R> parser_all(Iter const& beg, Iter const& end) const {
             std::vector<T> in(beg, end);
             Result p{apply(in.begin(), in.end())};
 
@@ -216,7 +217,7 @@ namespace tfl {
             return res;
         }
 
-        std::vector<R> parseAll(std::initializer_list<T> ls) const {
+        std::vector<R> parser_all(std::initializer_list<T> ls) const {
             return operator()(ls.begin(), ls.end());
         } 
 
@@ -225,27 +226,27 @@ namespace tfl {
             typename = std::enable_if_t<std::is_same_v<T, R>>
         >
         static Parser<T, T> elem(F&& predicate) {
-            return Parser<T, T>(new Private::Elem<T>(predicate));
+            return Parser<T, T>(new ParserImpl::Elem<T>(predicate));
         }
 
         template<typename F>
         static Parser<T, R> eps(F&& generator) {
-            return Parser<T, R>(new Private::Epsilon<T, R>(generator));
+            return Parser<T, R>(new ParserImpl::Epsilon<T, R>(generator));
         }
 
         Parser<T, R> operator|(Parser<T, R> const& that) const {
-            return Parser<T, R>(new Private::Disjunction<T, R>(*this, that));
+            return Parser<T, R>(new ParserImpl::Disjunction<T, R>(*this, that));
         }
 
         template<typename R2>
         Parser<T, std::pair<R, R2>> operator&(Parser<T, R2> const& that) const {
-            return Parser<T, std::pair<R, R2>>(new Private::Sequence<T, R, R2>(*this, that));
+            return Parser<T, std::pair<R, R2>>(new ParserImpl::Sequence<T, R, R2>(*this, that));
         }
 
         template<typename F, typename U = std::invoke_result_t<F, R>>
         Parser<T, U> map(F&& map) const {
             return Parser<T, U>(
-                new Private::Map<T, U, R>(
+                new ParserImpl::Map<T, U, R>(
                     *this, 
                     std::forward<F>(map)
                 )
@@ -264,11 +265,13 @@ namespace tfl {
 
     template<typename T, typename R>
     class Recursive final {
-        std::shared_ptr<Private::Recursion<T, R>> _rec;
+        std::shared_ptr<ParserImpl::Recursion<T, R>> _rec;
         std::optional<Parser<T, R>> _init;
 
     public:
-        Recursive(): _rec(new Private::Recursion<T, R>()), _init(std::nullopt) {}
+        Recursive(): _rec(new ParserImpl::Recursion<T, R>()), _init(std::nullopt) {}
+        Recursive(Recursive const&) = delete;
+        Recursive& operator=(Recursive const&) = delete;
 
         operator Parser<T, R> () const {
             return _init ? _init.value() : Parser<T, R>(_rec);
