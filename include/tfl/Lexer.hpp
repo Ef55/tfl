@@ -75,6 +75,7 @@ namespace tfl {
     template<typename T, typename R>
     class LexerImpl {
     public:
+        virtual ~LexerImpl() = default;
         virtual std::vector<R> apply (std::vector<T>&) const = 0;
     };
 

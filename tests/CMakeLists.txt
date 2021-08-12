@@ -4,6 +4,7 @@ set(TEST_SRC
     "lexer/Regex.cpp"
     "lexer/RegexDerivation.cpp"
     "parser/Parser.cpp"
+    "parser/Parsers.cpp"
 )
 
 add_executable("Tests" ${TEST_SRC})
@@ -14,5 +15,5 @@ target_compile_options("Tests" PRIVATE -g)
 target_compile_options("Tests" PRIVATE -Wall)
 target_compile_options("Tests" PRIVATE -pedantic)
 
-# target_compile_options("Tests" PRIVATE -fsanitize=address)
-# target_link_options("Tests" PRIVATE -fsanitize=address)
+target_compile_options("Tests" PRIVATE -fsanitize=address)
+target_link_options("Tests" PRIVATE -fsanitize=address)
