@@ -167,6 +167,23 @@ namespace tfl {
                 return res;
             }
         };
+
+        template<typename T, typename R, typename Word = std::vector<T>>
+        class Filter final: public LexerBase<T, R, Word> {
+            std::function<bool(R)> _filter;
+            Lexer<T, R, Word> _underlying;
+
+        public:
+            template<typename F>
+            Filter(Lexer<T, R, Word> const& underlying, F&& filter): _filter([filter](auto i){ return !filter(i); }), _underlying(underlying) {}
+
+            virtual std::vector<R> apply (std::vector<T>& in) const {
+                auto sub(_underlying(in));
+                auto end = std::remove_if(sub.begin(), sub.end(), _filter);
+                sub.erase(end, sub.cend());
+                return sub;
+            }
+        };
     };
 
     template<typename T, typename R, typename Word = std::vector<T>>
@@ -224,6 +241,11 @@ namespace tfl {
         template<typename F, typename U = std::invoke_result_t<F, R>>
         Lexer<T, U, Word> map(F&& map) const {
             return Lexer<T, U, Word>(new LexerImpl::Map<T, U, R, Word>(*this, std::forward<F>(map)));
+        }
+
+        template<typename F>
+        Lexer<T, R, Word> filter(F&& filter) const {
+            return Lexer<T, R, Word>(new LexerImpl::Filter<T, R, Word>(*this, std::forward<F>(filter)));
         }
 
     };

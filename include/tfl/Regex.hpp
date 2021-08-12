@@ -272,6 +272,10 @@ namespace tfl {
             return Regex<T>::literal(std::forward<F>(predicate));
         }
 
+        static Regex<T> opt(Regex<T> const& r) {
+            return epsilon() | r;
+        }
+
         template<class Container>
         static Regex<T> word(Container const& container) {
             Regex<T> result = Regex<T>::epsilon();

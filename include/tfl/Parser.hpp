@@ -313,7 +313,10 @@ namespace tfl {
         static constexpr auto wrap = [](E&& e){ return W{std::forward<E>(e)}; };
 
     public:
-        template<typename F>
+        template<
+            typename F,
+            typename = std::enable_if_t<std::is_convertible_v<F, std::function<bool(T)>>>
+        >
         static Parser<T, T> elem(F&& predicate) {
             return Parser<T, T>::elem(std::forward<F>(predicate));
         }
