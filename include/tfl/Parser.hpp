@@ -266,7 +266,7 @@ namespace tfl {
         std::optional<Parser<T, R>> _init;
 
     public:
-        Recursive(): _rec(new Private::Recursion<T, R>()), _init() {}
+        Recursive(): _rec(new Private::Recursion<T, R>()), _init(std::nullopt) {}
 
         operator Parser<T, R> () const {
             return _init ? _init.value() : Parser<T, R>(_rec);
@@ -298,11 +298,13 @@ namespace tfl {
 
     template<typename T>
     struct Parsers {
-        private:
+    private:
 
-        
+        static constexpr auto right_pushback_left = [](auto p){ p.second.push_back(p.first); return p.second; };
+        static constexpr auto reverse = [](auto ls){ decltype(ls) r(ls.rbegin(), ls.rend()); return r; };
+        static constexpr auto drop_left = [](auto p){ return p.second; };
 
-        public:
+    public:
         template<typename F>
         static Parser<T, T> elem(F&& predicate) {
             return Parser<T, T>::elem(std::forward<F>(predicate));
@@ -310,6 +312,14 @@ namespace tfl {
 
         static Parser<T, T> elem(T const& val) {
             return Parser<T, T>::elem([val](T const& i){ return i == val; });
+        }
+
+        static Parser<T, T> success() {
+            return Parser<T, T>::elem([](T const& i){ return true; });
+        }
+
+        static Parser<T, T> failure() {
+            return Parser<T, T>::elem([](T const& i){ return false; });
         }
 
         template<typename R, typename F>
@@ -322,33 +332,54 @@ namespace tfl {
             return Parser<T, R>::eps([val](){ return val; });
         }
 
-        template<
-            typename R,
-            typename F, 
-            typename = std::enable_if_t<
-                std::is_convertible_v<F, std::function<Parser<T, R>()>>
-            >
-        >
-        static Parser<T, R> recursive(F&& rec) {
-            return Parser<T, R>::recursive(std::forward<F>(rec));
+        template<typename R>
+        static Recursive<T, R> recursive() {
+            return Recursive<T, R>();
         }
 
         template<
             typename R,
             typename Result = std::vector<R>
         >
-        static Parser<T, Result> many(Parser<T, R> elem) {
+        static Parser<T, Result> many(Parser<T, R> const& elem) {
             Recursive<T, Result> rec;
             rec = 
                 eps(Result{}) |
                 (elem & rec)
-                    .map([](auto p){ p.second.push_back(p.first); return p.second; });
+                    .map(right_pushback_left);
 
-            return rec
-                .map([](auto ls){
-                    Result r(ls.rbegin(), ls.rend());
-                    return r;
-                });
+            return rec.map(reverse);
+        }
+
+        template<
+            typename R,
+            typename Result = std::vector<R>
+        >
+        static Parser<T, Result> many1(Parser<T, R> const& elem) {
+            Recursive<T, Result> rec;
+            rec = (
+                    elem & 
+                    (eps(Result{}) | rec)
+                ).map(right_pushback_left);
+
+            return rec.map(reverse);
+        }
+
+        template<
+            typename R,
+            typename S,
+            typename Result = std::vector<R>
+        >
+        static Parser<T, Result> repsep(Parser<T, R> const& elem, Parser<T, S> const& sep) {
+            Recursive<T, Result> rec;
+            rec = 
+                eps(Result{}) |
+                (
+                    (sep & elem).map(drop_left)
+                    & rec
+                ).map(right_pushback_left);
+
+            return eps(Result{}) | (elem & rec).map(right_pushback_left).map(reverse);
         }
 
     protected:
