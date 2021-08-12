@@ -33,7 +33,7 @@ enum class SpecialSymbol {
 CATCH_REGISTER_ENUM( SpecialSymbol, SpecialSymbol::OP_PAR, SpecialSymbol::CL_PAR, SpecialSymbol::SEP, SpecialSymbol::OP, SpecialSymbol::COMMENT )
 
 template<typename R>
-void test_lexer(tfl::Lexer<char, tfl::Positioned<R>> lexer, char const* name, char const* cinput, std::vector<std::pair<size_t, R>> expected) {
+void test_lexer_line_positioned(tfl::Lexer<char, tfl::Positioned<R>> lexer, char const* name, char const* cinput, std::vector<std::pair<size_t, R>> expected) {
     SECTION(name) {
 
         std::string input(cinput);
@@ -48,16 +48,31 @@ void test_lexer(tfl::Lexer<char, tfl::Positioned<R>> lexer, char const* name, ch
     }
 }
 
+template<typename R>
+void test_lexer(tfl::Lexer<char, R> lexer, char const* name, char const* cinput, std::vector<R> expected) {
+    SECTION(name) {
+
+        std::string input(cinput);
+        auto result = lexer(input.begin(), input.end());
+
+        CHECK( result.size() == expected.size() );
+
+        for(size_t i(0); i < expected.size(); ++i) {
+            INFO( std::to_string(i) + "th word" );
+            REQUIRE( result[i] == expected[i] );
+        }
+    }
+}
+
 TEST_CASE("Simple usecase") {
     using Word = std::variant<std::string, int, SpecialSymbol>;
-    using Regex = tfl::Regex<char>;
     using Regexes = tfl::Regexes<char>;
 
     auto alpha = Regexes::range('a', 'z') | Regexes::range('A', 'Z');
 
-    auto digit = Regex::literal([](auto chr){ return ('0' <= chr && chr <= '9'); });
+    auto digit = Regexes::literal([](auto chr){ return ('0' <= chr && chr <= '9'); });
 
-    auto eol = Regex::literal('\n');
+    auto eol = Regexes::literal('\n');
 
     auto space = Regexes::any_literal({'\t', '\n', '\v', '\f', '\r', ' '});
 
@@ -71,14 +86,18 @@ TEST_CASE("Simple usecase") {
             }), [](auto w){ return Word(SpecialSymbol::KEYWORD); }},
         {*alpha, [](auto w){ return Word(std::string(w.begin(), w.end())); }},
         {*digit, [](auto w){ return Word(std::stoi(std::string(w.begin(), w.end()))); }},
-        {Regex::literal('('), [](auto w){ return Word(SpecialSymbol::OP_PAR); }},
-        {Regex::literal(')'), [](auto w){ return Word(SpecialSymbol::CL_PAR); }},
+        {Regexes::literal('('), [](auto w){ return Word(SpecialSymbol::OP_PAR); }},
+        {Regexes::literal(')'), [](auto w){ return Word(SpecialSymbol::CL_PAR); }},
         {*space, [](auto w){ return Word(SpecialSymbol::SEP); }},
-        {Regex::literal('+') | Regex::literal('-') | Regex::literal('/') | Regex::literal('*'), [](auto w){ return Word(SpecialSymbol::OP); }},
-        {Regex::literal('/') & Regex::literal('/') & *(digit | alpha | Regex::literal(' ')) & eol, [](auto w){ return Word(SpecialSymbol::COMMENT); }},
+        {Regexes::literal('+') | Regexes::literal('-') | Regexes::literal('/') | Regexes::literal('*'), [](auto w){ return Word(SpecialSymbol::OP); }},
+        {Regexes::literal('/') & Regexes::literal('/') & *(digit | alpha | Regexes::literal(' ')) & eol, [](auto w){ return Word(SpecialSymbol::COMMENT); }},
     });
 
-    test_lexer(
+    auto integer_lexer = tfl::Lexer<char, int, std::string>::make({
+        {*digit, [](auto str){ return std::stoi(str); }}
+    }).map([](auto e){ return e.value(); });
+
+    test_lexer_line_positioned(
         lexer,
         "Simple arithmetic expression is lexed as expected",
         "12x+4",
@@ -90,7 +109,7 @@ TEST_CASE("Simple usecase") {
         }
     );
 
-    test_lexer(
+    test_lexer_line_positioned(
         lexer,
         "Maximal munch is used", 
         "//th15 15 a c0mment\n",
@@ -99,7 +118,7 @@ TEST_CASE("Simple usecase") {
         }
     );
 
-    test_lexer(
+    test_lexer_line_positioned(
         lexer,
         "Priority is used", 
         "if",
@@ -108,7 +127,7 @@ TEST_CASE("Simple usecase") {
         }
     );
 
-    test_lexer(
+    test_lexer_line_positioned(
         lexer,
         "Monoline expression is lexed as expected",
         "return if (x equals 12) then (3) else (potato)",
@@ -139,4 +158,15 @@ TEST_CASE("Simple usecase") {
         }
     );
     
+    test_lexer(
+        lexer.map([](auto p){ return p.value(); }),
+        "Lexer map can be used to drop position",
+        "12x+4",
+        {
+            Word(12),
+            Word(std::string("x")),
+            Word(SpecialSymbol::OP),
+            Word(4)
+        }
+    );
 }

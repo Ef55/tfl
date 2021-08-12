@@ -16,8 +16,8 @@ namespace tfl {
         LexingException(std::string const& what_arg): logic_error(what_arg) {}
     };
 
-    template<typename T, typename R> class Lexer;
-    template<typename T, typename R> class Rule;
+    template<typename, typename, typename> class Lexer;
+    template<typename, typename, typename> class Rule;
 
     template<typename T>
     class Positioned {
@@ -56,18 +56,18 @@ namespace tfl {
     class LexerImpl {
         LexerImpl() = delete;
 
-        template<typename T, typename R> friend class Lexer;
+        template<typename, typename, typename> friend class Lexer;
 
-        template<typename T, typename R>
+        template<typename T, typename R, typename Word = std::vector<T>>
         class LexerBase {
         public:
             virtual ~LexerBase() = default;
             virtual std::vector<R> apply (std::vector<T>&) const = 0;
         };
 
-        template<typename T, typename R>
-        class SimpleLexer final : public LexerBase<T, Positioned<R>> {
-            std::vector<Rule<T, R>> _rules;
+        template<typename T, typename R, typename Word = std::vector<T>>
+        class SimpleLexer final : public LexerBase<T, Positioned<R>, Word> {
+            std::vector<Rule<T, R, Word>> _rules;
             Regex<T> _nl;
 
             template<
@@ -91,7 +91,7 @@ namespace tfl {
 
         public:
 
-            SimpleLexer(std::initializer_list<Rule<T, R>> rules, Regex<T> newline = Regex<T>::empty()): _rules(rules), _nl(newline) {}
+            SimpleLexer(std::initializer_list<Rule<T, R, Word>> rules, Regex<T> newline = Regex<T>::empty()): _rules(rules), _nl(newline) {}
 
             virtual std::vector<Positioned<R>> apply (std::vector<T>& input) const override {
                 std::vector<Positioned<R>> output;
@@ -130,7 +130,7 @@ namespace tfl {
                         throw LexingException("No rule applicable");
                     }
 
-                    Rule<T, R> p = _rules[std::distance(current.begin(), r)];
+                    Rule<T, R, Word> p = _rules[std::distance(current.begin(), r)];
                     auto l = r->value();
                     auto next = cur; 
                     std::advance(next, l);
@@ -151,14 +151,14 @@ namespace tfl {
 
         };
 
-        template<typename T, typename R, typename U>
-        class Map final: public LexerBase<T, R> {
+        template<typename T, typename R, typename U, typename Word = std::vector<T>>
+        class Map final: public LexerBase<T, R, Word> {
             std::function<R(U)> _map;
-            Lexer<T, U> _underlying;
+            Lexer<T, U, Word> _underlying;
 
         public:
             template<typename F>
-            Map(Lexer<T, U> const& underlying, F&& map): _map(std::forward<F>(map)), _underlying(underlying) {}
+            Map(Lexer<T, U, Word> const& underlying, F&& map): _map(std::forward<F>(map)), _underlying(underlying) {}
 
             virtual std::vector<R> apply (std::vector<T>& in) const {
                 std::vector<U> sub(_underlying(in));
@@ -169,17 +169,17 @@ namespace tfl {
         };
     };
 
-    template<typename T, typename R>
+    template<typename T, typename R, typename Word = std::vector<T>>
     class Rule final {
-        template<typename U, typename V> friend class LexerImpl::SimpleLexer;
-        using Map = std::function<R(std::vector<T>)>;
+        template<typename, typename> friend class LexerImpl::SimpleLexer;
+        using Map = std::function<R(Word)>;
 
         Regex<T> _regex;
         Map _map;
 
         template<class It>
         R map(It beg, It end) const {
-            std::vector<T> input(beg, end);
+            Word input(beg, end);
             return _map(input);
         }
 
@@ -192,12 +192,12 @@ namespace tfl {
         Rule(Regex<T> regex, F map): _regex(regex), _map(map) {}
     };
 
-    template<typename T, typename R>
+    template<typename T, typename R, typename Word = std::vector<T>>
     class Lexer final {
-        template<typename U, typename V> friend class Lexer;
-        std::shared_ptr<LexerImpl::LexerBase<T, R>> _lexer;
+        template<typename, typename, typename> friend class Lexer;
+        std::shared_ptr<LexerImpl::LexerBase<T, R, Word>> _lexer;
 
-        Lexer(LexerImpl::LexerBase<T, R>* ptr): _lexer(ptr) {}
+        Lexer(LexerImpl::LexerBase<T, R, Word>* ptr): _lexer(ptr) {}
 
     public:
 
@@ -207,8 +207,8 @@ namespace tfl {
         //     return Lexer<U, Positioned<V>>(ptr);
         // }
 
-        static Lexer<T, Positioned<R>> make(std::initializer_list<Rule<T, R>> rules, Regex<T> newline = Regex<T>::empty()) {
-            return Lexer<T, Positioned<R>>(new LexerImpl::SimpleLexer<T, R>(rules, newline));
+        static Lexer<T, Positioned<R>, Word> make(std::initializer_list<Rule<T, R, Word>> rules, Regex<T> newline = Regex<T>::empty()) {
+            return Lexer<T, Positioned<R>, Word>(new LexerImpl::SimpleLexer<T, R, Word>(rules, newline));
         }
 
         std::vector<R> operator() (std::vector<T>& input) const {
@@ -222,8 +222,8 @@ namespace tfl {
         }
 
         template<typename F, typename U = std::invoke_result_t<F, R>>
-        Lexer<T, U> map(F&& map) const {
-            return Lexer<T, U>(new LexerImpl::Map<T, U, R>(*this, std::forward<F>(map)));
+        Lexer<T, U, Word> map(F&& map) const {
+            return Lexer<T, U, Word>(new LexerImpl::Map<T, U, R, Word>(*this, std::forward<F>(map)));
         }
 
     };

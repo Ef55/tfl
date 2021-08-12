@@ -21,7 +21,7 @@ namespace tfl {
     class ParserImpl {
         ParserImpl() = delete;
 
-        template<typename T, typename R> friend class Parser;
+        template<typename, typename> friend class Parser;
 
         template<typename T, typename R>
         class ParserBase {
