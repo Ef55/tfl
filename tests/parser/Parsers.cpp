@@ -14,7 +14,6 @@ TEST_CASE("Additional combinators") {
     SECTION("Opt") {
         auto p = Parsers::opt(Parsers::success());
 
-
         CHECK( p({}) == std::nullopt );
         CHECK( p({'a'}) == std::optional('a') );
         CHECK( p({'b'}) == std::optional('b') );

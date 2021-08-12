@@ -52,17 +52,16 @@ namespace tfl {
 
         template<typename T, typename R>
         class Epsilon final: public ParserBase<T, R> {
-            std::function<R()> const _gen;
+            R const _val;
 
         public:
             using Result = typename ParserBase<T, R>::Result;
             using It = typename ParserBase<T, R>::It;
 
-            template<typename F>
-            Epsilon(F&& generator): _gen(std::forward<F>(generator)) {}
+            Epsilon(R const& val): _val(val) {}
 
             virtual Result apply(It const& beg, It const& end) const {
-                return Result{{_gen(), beg}};
+                return Result{{_val, beg}};
             }
         };
 
@@ -229,9 +228,8 @@ namespace tfl {
             return Parser<T, T>(new ParserImpl::Elem<T>(predicate));
         }
 
-        template<typename F>
-        static Parser<T, R> eps(F&& generator) {
-            return Parser<T, R>(new ParserImpl::Epsilon<T, R>(generator));
+        static Parser<T, R> eps(R const& val) {
+            return Parser<T, R>(new ParserImpl::Epsilon<T, R>(val));
         }
 
         Parser<T, R> operator|(Parser<T, R> const& that) const {
@@ -306,7 +304,7 @@ namespace tfl {
     private:
 
         static constexpr auto right_pushback_left = [](auto p){ p.second.push_back(p.first); return p.second; };
-        static constexpr auto reverse = [](auto ls){ decltype(ls) r(ls.rbegin(), ls.rend()); return r; };
+        static constexpr auto reverse = [](auto ls){ std::reverse(ls.begin(), ls.end()); return ls; };
         static constexpr auto drop_left = [](auto p){ return p.second; };
 
         template<typename W, typename E>
@@ -330,14 +328,9 @@ namespace tfl {
             return Parser<T, T>::elem([](T const& i){ return false; });
         }
 
-        template<typename R, typename F>
-        static Parser<T, R> eps(F&& generator) {
-            return Parser<T, R>::eps(std::forward<F>(generator));
-        }
-
         template<typename R>
         static Parser<T, R> eps(R const& val) {
-            return Parser<T, R>::eps([val](){ return val; });
+            return Parser<T, R>::eps(val);
         }
 
         template<typename R>
@@ -411,6 +404,7 @@ namespace tfl {
 
         // template<typename R, typename... Types>
         // static Parser<T, std::tuple<R, Types...>> sequence(Parser<T, R> const& p, Parser<T, Types>... others) {}
+
 
     protected:
         Parsers() {}

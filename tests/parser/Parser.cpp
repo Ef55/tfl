@@ -24,7 +24,7 @@ TEST_CASE("Parser input tests") {
     }
 
     SECTION("Epsilon") {
-        Parser<char> p(Parser<char>::eps([](){ return 'a'; }));
+        Parser<char> p(Parser<char>::eps('a'));
 
         CHECK( p({}) == 'a' );
         CHECK_THROWS( p({'a'}) );
@@ -35,7 +35,7 @@ TEST_CASE("Parser input tests") {
 
     SECTION("Disjunction") {
         Parser<char> p1(Parser<char>::elem([](char c){ return c == 'a'; }));
-        Parser<char> p2(Parser<char>::eps([](){ return 'b'; }));
+        Parser<char> p2(Parser<char>::eps('b'));
         Parser<char> p = p1 | p2;
 
 
@@ -49,7 +49,7 @@ TEST_CASE("Parser input tests") {
     SECTION("Sequence") {
         using R = std::pair<char, int>;
         Parser<char> p1(Parser<char>::elem([](char c){ return c == 'a'; }));
-        Parser<int> p2(Parser<int>::eps([](){ return 1; }));
+        Parser<int> p2(Parser<int>::eps(1));
         Parser<R> p = p1 & p2;
 
         CHECK_THROWS( p({}) );
@@ -72,7 +72,7 @@ TEST_CASE("Parser input tests") {
     SECTION("Recursion") {
         Recursive<int> rec;
         Parser<int> p = rec = 
-            Parser<int>::eps([](){ return 0; }) | 
+            Parser<int>::eps(0) | 
             (Parser<char>::elem([](char c){ return true; }) & rec)
                 .map([](std::pair<char, char> pair)->int{ return pair.first + pair.second; });
 
@@ -86,7 +86,7 @@ TEST_CASE("Parser input tests") {
 TEST_CASE("Recursion operators") {
 
     SECTION("Disjunction") {
-        Parser<char> pc = Parser<char>::eps([](){ return 'a'; });
+        Parser<char> pc = Parser<char>::eps('a');
 
         Recursive<char> rec1;
         Recursive<char> rec2;
@@ -99,7 +99,7 @@ TEST_CASE("Recursion operators") {
 
     SECTION("Sequence") {
         auto sum = [](auto p){ return p.first+p.second; };
-        Parser<int> pi = Parser<int>::eps([](){ return 0; });
+        Parser<int> pi = Parser<int>::eps(0);
 
         Recursive<int> rec1;
         Recursive<int> rec2;
@@ -122,7 +122,7 @@ TEST_CASE("Cross-recursion") {
     Recursive<int> rec1;
     Recursive<int> rec2;
 
-    rec1 = Parser<int>::eps([](){ return 0; }) | 
+    rec1 = Parser<int>::eps(0) | 
         (Parser<char>::elem([](char c){ return c=='a'; }) & (rec1 | rec2))
             .map([](auto p){ return p.second + 1; });
 
