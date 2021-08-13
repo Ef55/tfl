@@ -14,13 +14,12 @@ enum class Special {
     NEWLINE
 };
 
-using Token = std::variant<int, char, std::string, Special>;
+using Token = std::variant<int, char, Special>;
 
 class Lexer final: tfl::Regexes<char> {
     using Regex = tfl::Regex<char>;
 
     Regex const num     = literal([](char c){ return '0' <= c && c <= '9'; });
-    Regex const alpha   = range('a', 'z') | Regexes::range('A', 'Z');
     Regex const op      = any_literal({'+', '-', '*', '/'});
     Regex const space   = any_literal({'\t', '\n', '\v', '\f', '\r', ' '});
     Regex const newline = opt(literal('\r')) & literal('\n');
@@ -28,7 +27,6 @@ class Lexer final: tfl::Regexes<char> {
     tfl::Lexer<char, Token, std::string> const lexer = tfl::Lexer<char, Token, std::string>::make({
         {*newline, [](auto){ return Token{Special::NEWLINE}; }},
         {num & *num, [](auto w){ return Token{std::stoi(w)}; }},
-        {*alpha, [](auto w){ return Token{w}; }},
         {*space, [](auto){ return Token{Special::SPACE}; }},
         {op, [](auto s){ return Token{s[0]}; }},
         {literal('('), [](auto){ return Token{Special::OP_PAR}; }},
