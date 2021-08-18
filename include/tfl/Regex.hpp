@@ -4,6 +4,7 @@
 #include <memory>
 #include <vector>
 #include <iterator>
+#include <concepts>
 
 namespace tfl {
     
@@ -68,7 +69,7 @@ namespace tfl {
         class Literal: public RegexBase {
             std::function<bool(T)> const _pred;
         public:
-            template<typename F, typename = std::enable_if_t<std::is_convertible_v<F, std::function<bool(T)>>>>
+            template<std::predicate<T> F>
             Literal(F&& predicate): _pred(std::forward<F>(predicate)) {}
 
             virtual Regex<T> derive(T const& x) const {
@@ -210,7 +211,7 @@ namespace tfl {
             return Regex(new Literal([lit](T const& elem){ return elem == lit; }));
         }
 
-        template<typename F, typename = std::enable_if_t<std::is_convertible_v<F, std::function<bool(T)>>>>
+        template<std::predicate<T> F>
         static Regex literal(F&& predicate) {
             return Regex(new Literal(std::forward<F>(predicate)));
         }
@@ -267,7 +268,7 @@ namespace tfl {
             return Regex<T>::literal(lit);
         }
 
-        template<typename F, typename = std::enable_if_t<std::is_convertible_v<F, std::function<bool(T)>>>>
+        template<std::predicate<T> F>
         static Regex<T> literal(F&& predicate) {
             return Regex<T>::literal(std::forward<F>(predicate));
         }

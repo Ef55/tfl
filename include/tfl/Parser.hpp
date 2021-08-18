@@ -7,6 +7,7 @@
 #include <optional>
 #include <variant>
 #include <tuple>
+#include <concepts>
 
 namespace tfl {
 
@@ -22,6 +23,7 @@ namespace tfl {
         ParserImpl() = delete;
 
         template<typename, typename> friend class Parser;
+        template<typename, typename> friend class Recursive;
 
         template<typename T, typename R>
         class ParserBase {
@@ -222,10 +224,7 @@ namespace tfl {
             return operator()(ls.begin(), ls.end());
         } 
 
-        template<
-            typename F, 
-            typename = std::enable_if_t<std::is_same_v<T, R>>
-        >
+        template<typename F> requires std::same_as<T, R>
         static Parser<T, T> elem(F&& predicate) {
             return Parser<T, T>(new ParserImpl::Elem<T>(predicate));
         }
@@ -313,10 +312,7 @@ namespace tfl {
         static constexpr auto wrap = [](E&& e){ return W{std::forward<E>(e)}; };
 
     public:
-        template<
-            typename F,
-            typename = std::enable_if_t<std::is_convertible_v<F, std::function<bool(T)>>>
-        >
+        template<std::predicate<T> F>
         static Parser<T, T> elem(F&& predicate) {
             return Parser<T, T>::elem(std::forward<F>(predicate));
         }
