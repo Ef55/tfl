@@ -6,6 +6,8 @@
 #include <iterator>
 #include <concepts>
 
+#include "Concepts.hpp"
+
 namespace tfl {
     
     template<typename T>
@@ -183,7 +185,7 @@ namespace tfl {
             return _regex->nullable();
         };
 
-        template<class It>
+        template<std::input_iterator It>
         bool accepts(It beg, It end) const {
             Regex r = *this;
             for(; beg != end; ++beg) {
@@ -247,6 +249,9 @@ namespace tfl {
             return Regex(new KleeneStar(*this));
         }
 
+        Regex operator+ () const {
+            return *this & Regex(new KleeneStar(*this));
+        }
     };
 
     template<typename T>
@@ -277,61 +282,52 @@ namespace tfl {
             return epsilon() | r;
         }
 
-        template<class Container>
-        static Regex<T> word(Container const& container) {
+        template<iterable<T> C>
+        static Regex<T> word(C const& iterable) {
             Regex<T> result = Regex<T>::epsilon();
-            for(T const& lit : container) {
+            for(T const& lit : iterable) {
                 result = result & Regex<T>::literal(lit);
             }
 
             return result;
         }
 
-        static Regex<T> word(std::initializer_list<T> const& container) {
+        static Regex<T> word(std::initializer_list<T> const& iterable) {
             Regex<T> result = Regex<T>::epsilon();
-            for(T const& lit : container) {
+            for(T const& lit : iterable) {
                 result = result & Regex<T>::literal(lit);
             }
 
             return result;
         }
 
-        template<class Container>
-        static Regex<T> any_literal(Container const& container) {
+        static Regex<T> any_literal() {
+            return Regex<T>::literal([](auto){ return true; });
+        }
+
+        template<iterable<T> C>
+        static Regex<T> any_of(C const& iterable) {
             Regex<T> result = Regex<T>::empty();
-            for(T const& lit : container) {
+            for(T const& lit : iterable) {
                 result = result | Regex<T>::literal(lit);
             }
 
             return result;
         }
 
-        static Regex<T> any_literal(std::initializer_list<T> const& container) {
+        template<iterable<Regex<T>> C>
+        static Regex<T> any_of(C const& iterable) {
             Regex<T> result = Regex<T>::empty();
-            for(T const& lit : container) {
-                result = result | Regex<T>::literal(lit);
-            }
-
-            return result;
-        }
-
-        template<class Container>
-        static Regex<T> any(Container const& container) {
-            Regex<T> result = Regex<T>::empty();
-            for(Regex<T> const& regex : container) {
+            for(Regex<T> const& regex : iterable) {
                 result = result | regex;
             }
 
             return result;
         }
 
-        static Regex<T> any(std::initializer_list<Regex<T>> const& container) {
-            Regex<T> result = Regex<T>::empty();
-            for(Regex<T> const& regex : container) {
-                result = result | regex;
-            }
-
-            return result;
+        template<typename C>
+        static Regex<T> any_of(std::initializer_list<C> const& iterable) {
+            return any_of<std::initializer_list<C>>(iterable);
         }
 
         static Regex<T> range(T const& low, T const& high) {

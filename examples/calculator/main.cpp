@@ -20,8 +20,8 @@ class Lexer final: tfl::Regexes<char> {
     using Regex = tfl::Regex<char>;
 
     Regex const num     = literal([](char c){ return '0' <= c && c <= '9'; });
-    Regex const op      = any_literal({'+', '-', '*', '/'});
-    Regex const space   = any_literal({'\t', '\n', '\v', '\f', '\r', ' '});
+    Regex const op      = any_of({'+', '-', '*', '/'});
+    Regex const space   = any_of({'\t', '\n', '\v', '\f', '\r', ' '});
     Regex const newline = opt(literal('\r')) & literal('\n');
 
     tfl::Lexer<char, Token, std::string> const lexer = tfl::Lexer<char, Token, std::string>::make({

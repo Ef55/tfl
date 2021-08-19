@@ -9,6 +9,8 @@
 #include <tuple>
 #include <concepts>
 
+#include "Concepts.hpp"
+
 namespace tfl {
 
     class ParsingException: public std::logic_error {
@@ -16,8 +18,8 @@ namespace tfl {
         ParsingException(std::string const& what_arg): logic_error(what_arg) {}
     };
 
-    template<typename T, typename R> class Parser;
-    template<typename T, typename R> class Recursive;
+    template<typename, typename> class Parser;
+    template<typename, typename> class Recursive;
     
     class ParserImpl {
         ParserImpl() = delete;
@@ -46,7 +48,7 @@ namespace tfl {
             using Result = typename ParserBase<T, T>::Result;
             using It = typename ParserBase<T, T>::It;
 
-            template<typename F>
+            template<std::predicate<T> F>
             Elem(F&& predicate): _pred(predicate) {}
 
             virtual Result apply(It const& beg, It const& end) const {
@@ -126,7 +128,7 @@ namespace tfl {
             using Result = typename ParserBase<T, R>::Result;
             using It = typename ParserBase<T, R>::It;
 
-            template<typename F>
+            template<invocable_with_result<R, U> F>
             Map(Parser<T, U> const& underlying, F&& map): _underlying(underlying), _map(map) {}
 
             virtual Result apply(It const& beg, It const& end) const {
@@ -189,9 +191,9 @@ namespace tfl {
             return _parser->apply(beg, end);
         }
 
-        template<typename Iter>
+        template<std::input_iterator Iter>
         R operator()(Iter const& beg, Iter const& end) const {
-            auto r = parser_all(beg, end);
+            auto r = parse_all(beg, end);
 
             if(r.size() != 1) {
                 throw ParsingException("Parsing failed: " + std::to_string(r.size()) + " match(es).");
@@ -205,8 +207,8 @@ namespace tfl {
             return operator()(ls.begin(), ls.end());
         }   
 
-        template<typename Iter>
-        std::vector<R> parser_all(Iter const& beg, Iter const& end) const {
+        template<std::input_iterator Iter>
+        std::vector<R> parse_all(Iter const& beg, Iter const& end) const {
             std::vector<T> in(beg, end);
             Result p{apply(in.begin(), in.end())};
 
@@ -220,13 +222,13 @@ namespace tfl {
             return res;
         }
 
-        std::vector<R> parser_all(std::initializer_list<T> ls) const {
+        std::vector<R> parse_all(std::initializer_list<T> ls) const {
             return operator()(ls.begin(), ls.end());
         } 
 
-        template<typename F> requires std::same_as<T, R>
+        template<std::predicate<T> F> requires std::same_as<T, R>
         static Parser<T, T> elem(F&& predicate) {
-            return Parser<T, T>(new ParserImpl::Elem<T>(predicate));
+            return Parser<T, T>(new ParserImpl::Elem<T>(std::forward<F>(predicate)));
         }
 
         static Parser<T, R> eps(R const& val) {
@@ -242,10 +244,11 @@ namespace tfl {
             return Parser<T, std::pair<R, R2>>(new ParserImpl::Sequence<T, R, R2>(*this, that));
         }
 
-        template<typename F, typename U = std::invoke_result_t<F, R>>
-        Parser<T, U> map(F&& map) const {
-            return Parser<T, U>(
-                new ParserImpl::Map<T, U, R>(
+        template<std::invocable<R> F>
+        Parser<T, std::invoke_result_t<F, R>> map(F&& map) const {
+            using Rn = std::invoke_result_t<F, R>;
+            return Parser<T, Rn>(
+                new ParserImpl::Map<T, Rn, R>(
                     *this, 
                     std::forward<F>(map)
                 )
@@ -294,22 +297,24 @@ namespace tfl {
             return static_cast<Parser<T, R>>(*this) & that;
         }
 
-        template<typename F, typename U = std::invoke_result_t<F, R>>
-        Parser<T, U> map(F&& map) {
-            return static_cast<Parser<T, R>>(*this).map(std::forward<F>(map));
+        template<std::invocable<R> F>
+        Parser<T, std::invoke_result_t<F, R>> map(F&& map) {
+            return static_cast<Parser<T, std::invoke_result_t<F, R>>>(*this).map(std::forward<F>(map));
         }
     };
 
     template<typename T>
     struct Parsers {
     private:
-
         static constexpr auto right_pushback_left = [](auto p){ p.second.push_back(p.first); return p.second; };
         static constexpr auto reverse = [](auto ls){ std::reverse(ls.begin(), ls.end()); return ls; };
         static constexpr auto drop_left = [](auto p){ return p.second; };
 
-        template<typename W, typename E>
+        template<typename E, std::constructible_from<E> W>
         static constexpr auto wrap = [](E&& e){ return W{std::forward<E>(e)}; };
+
+    protected:
+        Parsers() = default;
 
     public:
         template<std::predicate<T> F>
@@ -321,11 +326,11 @@ namespace tfl {
             return Parser<T, T>::elem([val](T const& i){ return i == val; });
         }
 
-        static Parser<T, T> success() {
+        static Parser<T, T> any() {
             return Parser<T, T>::elem([](T const& i){ return true; });
         }
 
-        static Parser<T, T> failure() {
+        static Parser<T, T> none() {
             return Parser<T, T>::elem([](T const& i){ return false; });
         }
 
@@ -341,12 +346,12 @@ namespace tfl {
 
         template<typename R>
         static Parser<T, std::optional<R>> opt(Parser<T, R> p) {
-            return eps(std::optional<R>(std::nullopt)) | p.map(wrap<std::optional<R>, R>);
+            return eps(std::optional<R>(std::nullopt)) | p.map(wrap<R, std::optional<R>>);
         }
 
         template<
             typename R,
-            typename Result = std::vector<R>
+            container<R> Result = std::vector<R>
         >
         static Parser<T, Result> many(Parser<T, R> const& elem) {
             Recursive<T, Result> rec;
@@ -360,7 +365,7 @@ namespace tfl {
 
         template<
             typename R,
-            typename Result = std::vector<R>
+            container<R> Result = std::vector<R>
         >
         static Parser<T, Result> many1(Parser<T, R> const& elem) {
             Recursive<T, Result> rec;
@@ -375,7 +380,7 @@ namespace tfl {
         template<
             typename R,
             typename S,
-            typename Result = std::vector<R>
+            container<R> Result = std::vector<R>
         >
         static Parser<T, Result> repsep1(Parser<T, R> const& elem, Parser<T, S> const& sep) {
             Recursive<T, Result> rec;
@@ -392,7 +397,7 @@ namespace tfl {
         template<
             typename R,
             typename S,
-            typename Result = std::vector<R>
+            container<R> Result = std::vector<R>
         >
         static Parser<T, Result> repsep(Parser<T, R> const& elem, Parser<T, S> const& sep) {
             return eps(Result{}) | repsep1(elem, sep);
@@ -400,15 +405,11 @@ namespace tfl {
 
         template<typename R, typename... Types>
         static Parser<T, std::variant<R, Types...>> either(Parser<T, R> const& p, Parser<T, Types>... others) {
-            return (p.map(wrap<std::variant<R, Types...>, R>) | ... | others.map(wrap<std::variant<R, Types...>, Types>));
+            return (p.map(wrap<R, std::variant<R, Types...>>) | ... | others.map(wrap<Types, std::variant<R, Types...>>));
         }
 
         // template<typename R, typename... Types>
         // static Parser<T, std::tuple<R, Types...>> sequence(Parser<T, R> const& p, Parser<T, Types>... others) {}
-
-
-    protected:
-        Parsers() {}
     };
     
 }

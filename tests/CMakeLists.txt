@@ -7,6 +7,8 @@ set(TEST_SRC
     "parser/Parsers.cpp"
 )
 
+find_package(Catch2 REQUIRED)
+
 add_executable("Tests" ${TEST_SRC})
 target_include_directories("Tests" PRIVATE "../include/")
 target_link_libraries("Tests" PRIVATE Catch2::Catch2)

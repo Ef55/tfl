@@ -74,11 +74,11 @@ TEST_CASE("Simple usecase") {
 
     auto eol = Regexes::literal('\n');
 
-    auto space = Regexes::any_literal({'\t', '\n', '\v', '\f', '\r', ' '});
+    auto space = Regexes::any_of({'\t', '\n', '\v', '\f', '\r', ' '});
 
 
     auto lexer = tfl::Lexer<char, Word>::make({
-        {Regexes::any({
+        {Regexes::any_of({
             Regexes::word({'i', 'f'}),
             Regexes::word({'t', 'h', 'e', 'n'}),
             Regexes::word({'e', 'l', 's', 'e'}),

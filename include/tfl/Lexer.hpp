@@ -8,6 +8,7 @@
 #include <optional>
 #include <type_traits>
 #include <stdexcept>
+#include <concepts>
 
 namespace tfl {
 
@@ -157,7 +158,7 @@ namespace tfl {
             Lexer<T, U, Word> _underlying;
 
         public:
-            template<typename F>
+            template<std::invocable<U> F>
             Map(Lexer<T, U, Word> const& underlying, F&& map): _map(std::forward<F>(map)), _underlying(underlying) {}
 
             virtual std::vector<R> apply (std::vector<T>& in) const {
@@ -174,7 +175,7 @@ namespace tfl {
             Lexer<T, R, Word> _underlying;
 
         public:
-            template<typename F>
+            template<std::predicate<R> F>
             Filter(Lexer<T, R, Word> const& underlying, F&& filter): _filter([filter](auto i){ return !filter(i); }), _underlying(underlying) {}
 
             virtual std::vector<R> apply (std::vector<T>& in) const {
@@ -205,7 +206,7 @@ namespace tfl {
         }
 
     public:
-        template<typename F>
+        template<std::invocable<Word> F>
         Rule(Regex<T> regex, F map): _regex(regex), _map(map) {}
     };
 
@@ -238,12 +239,12 @@ namespace tfl {
             return _lexer->apply(input);
         }
 
-        template<typename F, typename U = std::invoke_result_t<F, R>>
+        template<std::invocable<R> F, typename U = std::invoke_result_t<F, R>>
         Lexer<T, U, Word> map(F&& map) const {
             return Lexer<T, U, Word>(new LexerImpl::Map<T, U, R, Word>(*this, std::forward<F>(map)));
         }
 
-        template<typename F>
+        template<std::predicate<R> F>
         Lexer<T, R, Word> filter(F&& filter) const {
             return Lexer<T, R, Word>(new LexerImpl::Filter<T, R, Word>(*this, std::forward<F>(filter)));
         }

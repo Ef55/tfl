@@ -124,7 +124,7 @@ TEMPLATE_TEST_CASE("Regex utilities input tests", "[template]", tfl::Regexes<cha
     }
 
     SECTION("Any (literal)") {
-        auto r = TestType::any_literal({'t', 'o', 'm', 'a'});
+        auto r = TestType::any_of({'t', 'o', 'm', 'a'});
 
         REQUIRE( !r.accepts({}) );
         REQUIRE( r.accepts({'t'}) );

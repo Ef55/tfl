@@ -12,7 +12,7 @@ using Parsers = tfl::Parsers<char>;
 
 TEST_CASE("Additional combinators") {
     SECTION("Opt") {
-        auto p = Parsers::opt(Parsers::success());
+        auto p = Parsers::opt(Parsers::any());
 
         CHECK( p({}) == std::nullopt );
         CHECK( p({'a'}) == std::optional('a') );
@@ -22,7 +22,7 @@ TEST_CASE("Additional combinators") {
     }
 
     SECTION("Many") {
-        auto elem = Parsers::success();
+        auto elem = Parsers::any();
         Parser<std::vector<char>> p = Parsers::many(elem);
 
         CHECK( p({}) == std::vector<char>{} );
@@ -32,7 +32,7 @@ TEST_CASE("Additional combinators") {
     }
 
     SECTION("Many 1") {
-        auto elem = Parsers::success();
+        auto elem = Parsers::any();
         Parser<std::vector<char>> p = Parsers::many1(elem);
 
         CHECK_THROWS( p({}) );
