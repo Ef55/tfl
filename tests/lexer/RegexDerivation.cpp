@@ -6,13 +6,13 @@ using Regex = tfl::Regex<char>;
 
 auto nullable = tfl::RegexesDerivation<char>::nullable;
 
-TEST_CASE("Base cases nullability") {
+TEST_CASE("Base regexes have expected nullability") {
     REQUIRE( !nullable(Regex::empty()) );
     REQUIRE(  nullable(Regex::epsilon()) );
     REQUIRE( !nullable(Regex::literal('a')) );
 }
 
-TEST_CASE("Combinators nullability") {
+TEST_CASE("Combinated regexes have expected nullability") {
     GIVEN("Two nullable regex") {
         Regex l = Regex::epsilon();
         Regex r = Regex::epsilon();
@@ -58,7 +58,7 @@ TEST_CASE("Combinators nullability") {
     }
 }
 
-TEST_CASE("Closure nullability") {
+TEST_CASE("Regexes are nullable after closure") {
     GIVEN("A nullable regex") {
         Regex r = Regex::epsilon();
         REQUIRE( nullable(r) );

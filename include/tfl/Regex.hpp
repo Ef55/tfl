@@ -19,6 +19,8 @@ namespace tfl {
         virtual ~RegexMatcher() = default;
 
     public:
+        virtual R rec(Regex<T> const& regex) const final { return regex.match(*this); };
+
         virtual R empty() const = 0;
         virtual R epsilon() const = 0;
         virtual R literal(std::function<bool(T)> const& predicate) const = 0;
@@ -28,7 +30,7 @@ namespace tfl {
     };
 
     template<typename T>
-    class Regex {
+    class Regex final {
         
         class IsMatcher: public RegexMatcher<T, bool> {
             virtual bool empty() const { return false; }
@@ -146,42 +148,64 @@ namespace tfl {
         }
     };
 
+    template<typename T>
+    struct RegexesMetrics {
+    public: 
+        using Size = std::size_t;
+
+    private:
+        static class: public RegexMatcher<T, Size> {
+            using RegexMatcher<T, Size>::rec;
+        public:
+            Size empty() const { return 1; }
+            Size epsilon() const { return 1; }
+            Size literal(std::function<bool(T)> const& predicate) const { return 1; }
+            Size disjunction(Regex<T> const& left, Regex<T> const& right) const { return std::max(rec(left), rec(left)) + 1; }
+            Size sequence(Regex<T> const& left, Regex<T> const& right) const { return std::max(rec(left), rec(left)) + 1; }
+            Size kleene_star(Regex<T> const& regex) const { return rec(regex) + 1; }
+        } constexpr probe{};
+
+        static class: public RegexMatcher<T, Size> {
+            using RegexMatcher<T, Size>::rec;
+        public:
+            Size empty() const { return 1; }
+            Size epsilon() const { return 1; }
+            Size literal(std::function<bool(T)> const& predicate) const { return 1; }
+            Size disjunction(Regex<T> const& left, Regex<T> const& right) const { return rec(left) + rec(right) + 1; }
+            Size sequence(Regex<T> const& left, Regex<T> const& right) const { return rec(left) + rec(right) + 1; }
+            Size kleene_star(Regex<T> const& regex) const { return rec(regex) + 1; }
+        } constexpr measurer{};
+
+    protected:
+        virtual ~RegexesMetrics() = default;
+
+    public:
+        static Size depth(Regex<T> const& regex) {
+            return regex.match(probe);
+        }
+
+        static Size size(Regex<T> const& regex) {
+            return regex.match(measurer);
+        }
+    };
+
     template<class T>
     struct RegexesDerivation {
     private:
         static class: public RegexMatcher<T, bool> {
-            auto nullable(Regex<T> const& regex) const{ return regex.match(*this); }
-
+            using RegexMatcher<T, bool>::rec;
         public:
-            bool empty() const {
-                return false;
-            }
-
-            bool epsilon() const {
-                return true;
-            }
-            
-            bool literal(std::function<bool(T)> const& predicate) const {
-                return false;
-            }
-            
-            bool disjunction(Regex<T> const& left, Regex<T> const& right) const {
-                return nullable(left) || nullable(right);
-            }
-            
-            bool sequence(Regex<T> const& left, Regex<T> const& right) const {
-                return nullable(left) && nullable(right);
-            }
-            
-            bool kleene_star(Regex<T> const& regex) const {
-                return true;
-            }  
+            bool empty() const { return false; }
+            bool epsilon() const { return true; }
+            bool literal(std::function<bool(T)> const& predicate) const { return false; }
+            bool disjunction(Regex<T> const& left, Regex<T> const& right) const { return rec(left) || rec(right); }
+            bool sequence(Regex<T> const& left, Regex<T> const& right) const { return rec(left) && rec(right); }
+            bool kleene_star(Regex<T> const& regex) const { return true; }  
         } constexpr nullability_checker{};
 
         class RegexDeriver: public RegexMatcher<T, Regex<T>> {
+            using RegexMatcher<T, Regex<T>>::rec;
             T const& _x;
-
-            auto derive(Regex<T> const& regex) const { return regex.match(*this); }
         public:
             RegexDeriver(T const& x): _x(x) {}
 
@@ -198,19 +222,22 @@ namespace tfl {
             }
             
             Regex<T> disjunction(Regex<T> const& left, Regex<T> const& right) const {
-                return derive(left) | derive(right);
+                return rec(left) | rec(right);
             }
             
             Regex<T> sequence(Regex<T> const& left, Regex<T> const& right) const {
-                auto d = derive(left) & right;
-                return nullable(left) ? d | derive(right) : d;
+                auto d = rec(left) & right;
+                return nullable(left) ? d | rec(right) : d;
             }
             
             Regex<T> kleene_star(Regex<T> const& regex) const {
-                return derive(regex) & *regex;
+                return rec(regex) & *regex;
             }  
         };
 
+    protected:
+        ~RegexesDerivation() = default;
+    
     public:
         static bool nullable(Regex<T> const& regex) {
             return regex.match(nullability_checker);

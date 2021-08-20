@@ -2,11 +2,13 @@
 
 #include "tfl/Regex.hpp"
 
-TEMPLATE_TEST_CASE("Regex input tests", "[template]", tfl::RegexesDerivation<char>) {
-    using Regex = tfl::Regex<char>;
-    
-    auto accepts = [](Regex r, std::initializer_list<char> ls){ return TestType::accepts(r, ls); };
 
+using Regex = tfl::Regex<char>;
+using Regexes = tfl::Regexes<char>;
+ 
+TEMPLATE_TEST_CASE("Regexes accept/reject as expected", "[template]", tfl::RegexesDerivation<char>) {
+    auto accepts = [](Regex r, std::initializer_list<char> ls){ return TestType::accepts(r, ls); };
+  
     SECTION("Empty") {
         Regex r = Regex::empty();
 
@@ -113,10 +115,41 @@ TEMPLATE_TEST_CASE("Regex input tests", "[template]", tfl::RegexesDerivation<cha
 
 }
 
-TEMPLATE_TEST_CASE("Regex utilities input tests", "[template]", tfl::RegexesDerivation<char>) {
-    using Regex = tfl::Regex<char>;
-    using Regexes = tfl::Regexes<char>;
+TEMPLATE_TEST_CASE("Compacted regexes accept/reject as expected", "[template]", tfl::RegexesDerivation<char>) {
+    auto accepts = [](Regex r, std::vector<char> ls){ return TestType::accepts(r, ls.cbegin(), ls.cend()); };
 
+    auto e = Regex::epsilon();
+    auto f = Regex::empty();
+    auto a = Regex::literal('a');
+    auto b = Regex::literal('b');
+
+    std::vector<std::vector<char>> inputs = {
+        {},
+        {'a'},
+        {'b'},
+        {'a', 'b'}
+    };
+
+    auto test = [&inputs, &accepts](auto compacted, auto compacted_name, auto expected, auto expected_name){
+        GIVEN(compacted_name) {
+
+            THEN("it behaves as " << expected_name) {
+                for(auto input: inputs) {
+                    CHECK( accepts(compacted, input) == accepts(expected, input) );
+                }
+            }
+        } 
+    };
+
+    test(a | f, "a|⊥", a, "a");
+    test(f | a, "⊥|a", a, "a");
+    test(a & f, "a⊥", f, "⊥");
+    test(f & a, "⊥a", f, "⊥");
+    test(a & e, "aε", a, "a");
+    test(e & a, "εa", a, "a");
+}
+
+TEMPLATE_TEST_CASE("Additional regex combinators accept/reject as expected", "[template]", tfl::RegexesDerivation<char>) {
     auto accepts = [](Regex r, std::initializer_list<char> ls){ return TestType::accepts(r, ls); };
 
     SECTION("Word") {
