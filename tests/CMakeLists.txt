@@ -1,5 +1,4 @@
 set(TEST_SRC
-    "main.cpp"
     "lexer/Lexer.cpp"
     "lexer/Regex.cpp"
     "lexer/RegexDerivation.cpp"
@@ -8,11 +7,11 @@ set(TEST_SRC
     "parser/Parsers.cpp"
 )
 
-find_package(Catch2 REQUIRED)
+find_package(Catch2 3 REQUIRED)
 
 add_executable("Tests" ${TEST_SRC})
 target_include_directories("Tests" PRIVATE "../include/")
-target_link_libraries("Tests" PRIVATE Catch2::Catch2)
+target_link_libraries("Tests" PRIVATE Catch2::Catch2WithMain)
 
 target_compile_options("Tests" PRIVATE -g)
 target_compile_options("Tests" PRIVATE -Wall)
