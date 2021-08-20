@@ -3,6 +3,7 @@
 #include <functional>
 #include <memory>
 #include <vector>
+#include <variant>
 #include <iterator>
 #include <concepts>
 
@@ -10,247 +11,232 @@
 
 namespace tfl {
     
-    template<typename T>
-    class Regex final {
+    template<typename> class Regex;
 
-        class RegexBase;
-        std::shared_ptr<RegexBase> _regex;
-
-        Regex(RegexBase* ptr): _regex(ptr) {}
-        Regex(std::shared_ptr<RegexBase> const& ptr): _regex(ptr) {}
-
-        class RegexBase {
-        public:
-            virtual ~RegexBase() = default;
-
-            virtual Regex<T> derive(T const& x) const = 0;
-            virtual bool nullable() const = 0;
-
-            virtual bool isEmpty() const = 0;
-            virtual bool isEpsilon() const = 0;
-        };
-
-        class Empty: public RegexBase {
-        public:
-            virtual Regex<T> derive(T const&) const {
-                return Regex::empty();
-            }
-
-            virtual bool nullable() const {
-                return false;
-            }
-
-            virtual bool isEmpty() const {
-                return true;
-            }
-
-            virtual bool isEpsilon() const {
-                return false;
-            }
-        };
-
-        class Epsilon: public RegexBase {
-        public:
-            virtual Regex<T> derive(T const&) const {
-                return Regex::empty();
-            }
-
-            virtual bool nullable() const {
-                return true;
-            }
-
-            virtual bool isEmpty() const {
-                return false;
-            }
-
-            virtual bool isEpsilon() const {
-                return true;
-            }
-        };
-
-        class Literal: public RegexBase {
-            std::function<bool(T)> const _pred;
-        public:
-            template<std::predicate<T> F>
-            Literal(F&& predicate): _pred(std::forward<F>(predicate)) {}
-
-            virtual Regex<T> derive(T const& x) const {
-                return _pred(x) ?
-                    Regex::epsilon():
-                    Regex::empty();
-                
-            }
-
-            virtual bool nullable() const {
-                return false;
-            }
-
-            virtual bool isEmpty() const {
-                return false;
-            }
-
-            virtual bool isEpsilon() const {
-                return false;
-            }
-        };
-
-        class Disjunction: public RegexBase {
-            Regex const _left;
-            Regex const _right;
-
-        public:
-            Disjunction(Regex const& left, Regex const& right): _left(left), _right(right) {}
-
-            virtual Regex<T> derive(T const& x) const {
-                return _left.derive(x) | _right.derive(x);
-            }
-
-            virtual bool nullable() const {
-                return _left.nullable() || _right.nullable();
-            }
-
-            virtual bool isEmpty() const {
-                return false;
-            }
-
-            virtual bool isEpsilon() const {
-                return false;
-            }
-        };
-
-        class Sequence: public RegexBase {
-            Regex const _left;
-            Regex const _right;
-
-        public:
-            Sequence(Regex const& left, Regex const& right): _left(left), _right(right) {}
-
-            virtual Regex<T> derive(T const& x) const {
-                return _left.nullable() ?
-                    (_left.derive(x) & _right) | _right.derive(x):
-                    _left.derive(x) & _right;
-            }
-
-            virtual bool nullable() const {
-                return _left.nullable() && _right.nullable();
-            }
-
-            virtual bool isEmpty() const {
-                return false;
-            }
-
-            virtual bool isEpsilon() const {
-                return false;
-            }
-        };
-
-        class KleeneStar: public RegexBase {
-            Regex const _underlying;
-
-        public:
-            KleeneStar(Regex const& underlying): _underlying(underlying) {}
-
-            virtual Regex<T> derive(T const& x) const {
-                return _underlying.derive(x) & *_underlying;
-            }
-
-            virtual bool nullable() const {
-                return true;
-            }
-
-            virtual bool isEmpty() const {
-                return false;
-            }
-
-            virtual bool isEpsilon() const {
-                return false;
-            }
-        };
-
-        bool isEmpty() const {
-            return _regex->isEmpty();
-        }
-
-        bool isEpsilon() const {
-            return _regex->isEpsilon();
-        }
+    template<typename T, typename R>
+    class RegexMatcher {
+    protected:
+        virtual ~RegexMatcher() = default;
 
     public:
+        virtual R empty() const = 0;
+        virtual R epsilon() const = 0;
+        virtual R literal(std::function<bool(T)> const& predicate) const = 0;
+        virtual R disjunction(Regex<T> const& left, Regex<T> const& right) const = 0;
+        virtual R sequence(Regex<T> const& left, Regex<T> const& right) const = 0;
+        virtual R kleene_star(Regex<T> const& regex) const = 0;
+    };
 
-        Regex derive(T const& x) const {
-            return _regex->derive(x);
+    template<typename T>
+    class Regex {
+        
+        class IsMatcher: public RegexMatcher<T, bool> {
+            virtual bool empty() const { return false; }
+            virtual bool epsilon() const { return false; }
+            virtual bool literal(std::function<bool(T)> const& predicate) const { return false; }
+            virtual bool disjunction(Regex<T> const& left, Regex<T> const& right) const { return false; }
+            virtual bool sequence(Regex<T> const& left, Regex<T> const& right) const { return false; }
+            virtual bool kleene_star(Regex<T> const& regex) const { return false; }
         };
 
-        bool nullable() const {
-            return _regex->nullable();
+        static class IsEmpty: public IsMatcher {
+            bool empty() const { return true; }
+        } constexpr is_empty{};
+
+        static class IsEpsilon: public IsMatcher {
+            bool epsilon() const { return true; }
+        } constexpr is_epsilon{};
+
+        struct Empty {
+            template<typename R> inline R match(RegexMatcher<T, R> const& matcher) const { return matcher.empty(); }
         };
 
-        template<std::input_iterator It>
-        bool accepts(It beg, It end) const {
-            Regex r = *this;
-            for(; beg != end; ++beg) {
-                r = r.derive(*beg);
-            }
-            return r.nullable();
-        }
+        struct Epsilon {
+            template<typename R> inline R match(RegexMatcher<T, R> const& matcher) const { return matcher.epsilon(); }
+        };
 
-        bool accepts(std::initializer_list<T> init) const {
-            std::vector<T> v(init);
-            return accepts(v.cbegin(), v.cend());
+        struct Literal {
+            std::function<bool(T)> const _pred;
+            template<typename R> inline R match(RegexMatcher<T, R> const& matcher) const { return matcher.literal(_pred); }
+        };
+
+        struct Disjunction {
+            Regex const _left;
+            Regex const _right;
+            template<typename R> inline R match(RegexMatcher<T, R> const& matcher) const { return matcher.disjunction(_left, _right); }
+        };
+
+        struct Sequence {
+            Regex const _left;
+            Regex const _right;
+            template<typename R> inline R match(RegexMatcher<T, R> const& matcher) const { return matcher.sequence(_left, _right); }
+        };
+
+        struct KleeneStar {
+            Regex const _underlying;
+            template<typename R> inline R match(RegexMatcher<T, R> const& matcher) const { return matcher.kleene_star(_underlying); }
+        };
+
+        using Variant = std::variant<Empty, Epsilon, Literal, Disjunction, Sequence, KleeneStar>;
+        std::shared_ptr<Variant> _regex;
+
+        template<typename R> requires is_among_v<R, Empty, Epsilon, Literal, Disjunction, Sequence, KleeneStar>
+        Regex(R&& regex): _regex(std::make_shared<Variant>(std::forward<R>(regex))) {}
+
+    public:
+        using TokenType = T;
+
+        template<typename R>
+        R match(RegexMatcher<T, R> const& matcher) const {
+            return std::visit([&matcher](auto r){ return r.match(matcher); }, *_regex);
         }
 
         static Regex empty() {
-            static const Regex empty(new Empty());
+            static Regex const empty{Empty{}};
             return empty;
         }
 
         static Regex epsilon() {
-            static const Regex epsilon(new Epsilon());
+            static Regex epsilon{Epsilon{}};
             return epsilon;
         }
 
         static Regex literal(T const& lit) {
-            return Regex(new Literal([lit](T const& elem){ return elem == lit; }));
+            return Regex{Literal([lit](T const& elem){ return elem == lit; })};
         }
 
         template<std::predicate<T> F>
         static Regex literal(F&& predicate) {
-            return Regex(new Literal(std::forward<F>(predicate)));
+            return Regex{Literal(std::forward<F>(predicate))};
         }
 
         Regex operator| (Regex const& that) const {
-            if(that.isEmpty() || (nullable() && that.isEpsilon())) {
-                return *this;
-            }
-            else if(isEmpty() || (that.nullable() && isEpsilon())) {
+            if(this->match(is_empty)) {
                 return that;
             }
+            else if(that.match(is_empty)) {
+                return *this;
+            }
             else {
-                return Regex(new Disjunction(*this, that));
+                return Regex(Disjunction{*this, that});
             }
         }
 
         Regex operator& (Regex const& that) const {
-            if(isEmpty() || that.isEmpty()) {
-                return Regex::empty();
+            if(this->match(is_empty) || that.match(is_empty)) {
+                return empty();
             }
-            else if(isEpsilon()) {
+            else if(this->match(is_epsilon)) {
                 return that;
             }
-            else if(that.isEpsilon()) {
+            else if(that.match(is_epsilon)) {
                 return *this;
             }
             else {
-                return Regex(new Sequence(*this, that));
+                return Regex(Sequence{*this, that});
             }
         }
 
         Regex operator* () const {
-            return Regex(new KleeneStar(*this));
+            return Regex(KleeneStar(*this));
         }
 
         Regex operator+ () const {
-            return *this & Regex(new KleeneStar(*this));
+            return *this & Regex(KleeneStar(*this));
+        }
+    };
+
+    template<class T>
+    struct RegexesDerivation {
+    private:
+        static class: public RegexMatcher<T, bool> {
+            auto nullable(Regex<T> const& regex) const{ return regex.match(*this); }
+
+        public:
+            bool empty() const {
+                return false;
+            }
+
+            bool epsilon() const {
+                return true;
+            }
+            
+            bool literal(std::function<bool(T)> const& predicate) const {
+                return false;
+            }
+            
+            bool disjunction(Regex<T> const& left, Regex<T> const& right) const {
+                return nullable(left) || nullable(right);
+            }
+            
+            bool sequence(Regex<T> const& left, Regex<T> const& right) const {
+                return nullable(left) && nullable(right);
+            }
+            
+            bool kleene_star(Regex<T> const& regex) const {
+                return true;
+            }  
+        } constexpr nullability_checker{};
+
+        class RegexDeriver: public RegexMatcher<T, Regex<T>> {
+            T const& _x;
+
+            auto derive(Regex<T> const& regex) const { return regex.match(*this); }
+        public:
+            RegexDeriver(T const& x): _x(x) {}
+
+            Regex<T> empty() const {
+                return Regex<T>::empty();
+            }
+
+            Regex<T> epsilon() const {
+                return Regex<T>::empty();
+            }
+            
+            Regex<T> literal(std::function<bool(T)> const& predicate) const {
+                return predicate(_x) ? Regex<T>::epsilon() : Regex<T>::empty();
+            }
+            
+            Regex<T> disjunction(Regex<T> const& left, Regex<T> const& right) const {
+                return derive(left) | derive(right);
+            }
+            
+            Regex<T> sequence(Regex<T> const& left, Regex<T> const& right) const {
+                auto d = derive(left) & right;
+                return nullable(left) ? d | derive(right) : d;
+            }
+            
+            Regex<T> kleene_star(Regex<T> const& regex) const {
+                return derive(regex) & *regex;
+            }  
+        };
+
+    public:
+        static bool nullable(Regex<T> const& regex) {
+            return regex.match(nullability_checker);
+        }
+
+        static Regex<T> derive(T const& x, Regex<T> const& regex) {
+            return regex.match(RegexDeriver{x});
+        }
+
+        template<std::input_iterator It>
+        static Regex<T> derive(It beg, It end, Regex<T> const& regex) {
+            auto res = regex;
+            for(; beg != end; ++beg) {
+                res = derive(*beg, res);
+            }
+
+            return res;
+        }
+
+        template<std::input_iterator It>
+        static bool accepts(Regex<T> const& regex, It beg, It end) {
+            return nullable(derive(beg, end, regex));
+        }
+
+        static bool accepts(Regex<T> const& regex, std::initializer_list<T> ls) {
+            return nullable(derive(ls.begin(), ls.end(), regex));
         }
     };
 

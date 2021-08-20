@@ -10,6 +10,8 @@
 #include <stdexcept>
 #include <concepts>
 
+#include "Concepts.hpp"
+
 namespace tfl {
 
     class LexingException: public std::logic_error {
@@ -17,8 +19,8 @@ namespace tfl {
         LexingException(std::string const& what_arg): logic_error(what_arg) {}
     };
 
-    template<typename, typename, typename> class Lexer;
-    template<typename, typename, typename> class Rule;
+    template<typename T, typename, container<T>> class Lexer;
+    template<typename T, typename, container<T>> class Rule;
 
     template<typename T>
     class Positioned {
@@ -54,25 +56,25 @@ namespace tfl {
         }
     };
 
-    class LexerImpl {
+    class LexerImpl final {
         LexerImpl() = delete;
 
-        template<typename, typename, typename> friend class Lexer;
+        template<typename T, typename, container<T>> friend class Lexer;
 
-        template<typename T, typename R, typename Word = std::vector<T>>
+        template<typename T, typename R, container<T> Word = std::vector<T>>
         class LexerBase {
         public:
             virtual ~LexerBase() = default;
             virtual std::vector<R> apply (std::vector<T>&) const = 0;
         };
 
-        template<typename T, typename R, typename Word = std::vector<T>>
-        class SimpleLexer final : public LexerBase<T, Positioned<R>, Word> {
+        template<typename T, typename R, container<T> Word = std::vector<T>>
+        class SimpleDerivationLexer final : public LexerBase<T, Positioned<R>, Word> {
             std::vector<Rule<T, R, Word>> _rules;
             Regex<T> _nl;
 
             template<
-                class It, 
+                std::input_iterator It, 
                 typename I = typename std::iterator_traits<It>::difference_type, 
                 class Res = std::optional<I>
             >
@@ -81,8 +83,8 @@ namespace tfl {
                 I idx = 0;
                 for(; beg != end; ++beg) {
                     ++idx;
-                    r = r.derive(*beg);
-                    if(r.nullable()) {
+                    r = RegexesDerivation<T>::derive(*beg, r);
+                    if(RegexesDerivation<T>::nullable(r)) {
                         max = Res(idx);
                     }
                 }
@@ -92,7 +94,7 @@ namespace tfl {
 
         public:
 
-            SimpleLexer(std::initializer_list<Rule<T, R, Word>> rules, Regex<T> newline = Regex<T>::empty()): _rules(rules), _nl(newline) {}
+            SimpleDerivationLexer(std::initializer_list<Rule<T, R, Word>> rules, Regex<T> newline = Regex<T>::empty()): _rules(rules), _nl(newline) {}
 
             virtual std::vector<Positioned<R>> apply (std::vector<T>& input) const override {
                 std::vector<Positioned<R>> output;
@@ -152,7 +154,7 @@ namespace tfl {
 
         };
 
-        template<typename T, typename R, typename U, typename Word = std::vector<T>>
+        template<typename T, typename R, typename U, container<T> Word = std::vector<T>>
         class Map final: public LexerBase<T, R, Word> {
             std::function<R(U)> _map;
             Lexer<T, U, Word> _underlying;
@@ -169,7 +171,7 @@ namespace tfl {
             }
         };
 
-        template<typename T, typename R, typename Word = std::vector<T>>
+        template<typename T, typename R, container<T> Word = std::vector<T>>
         class Filter final: public LexerBase<T, R, Word> {
             std::function<bool(R)> _filter;
             Lexer<T, R, Word> _underlying;
@@ -187,15 +189,15 @@ namespace tfl {
         };
     };
 
-    template<typename T, typename R, typename Word = std::vector<T>>
+    template<typename T, typename R, container<T> Word = std::vector<T>>
     class Rule final {
-        template<typename, typename> friend class LexerImpl::SimpleLexer;
+        template<typename, typename, container<T>> friend class LexerImpl::SimpleDerivationLexer;
         using Map = std::function<R(Word)>;
 
         Regex<T> _regex;
         Map _map;
 
-        template<class It>
+        template<std::input_iterator It>
         R map(It beg, It end) const {
             Word input(beg, end);
             return _map(input);
@@ -210,30 +212,28 @@ namespace tfl {
         Rule(Regex<T> regex, F map): _regex(regex), _map(map) {}
     };
 
-    template<typename T, typename R, typename Word = std::vector<T>>
+    template<typename T, typename R, container<T> Word = std::vector<T>>
     class Lexer final {
-        template<typename, typename, typename> friend class Lexer;
+        template<typename S, typename, container<S>> friend class Lexer;
         std::shared_ptr<LexerImpl::LexerBase<T, R, Word>> _lexer;
 
         Lexer(LexerImpl::LexerBase<T, R, Word>* ptr): _lexer(ptr) {}
 
     public:
 
-        // template<typename U, typename V>
-        // static Lexer<U, Positioned<V>> make(std::initializer_list<Rule<U, V>> rules, Regex<U> newline = Regex<U>::empty()) {
-        //     LexerBase<U, Positioned<V>>* ptr = new SimpleLexer<U, V>(rules, newline);
-        //     return Lexer<U, Positioned<V>>(ptr);
-        // }
+        static Lexer<T, Positioned<R>, Word> make_derivation_lexer(std::initializer_list<Rule<T, R, Word>> rules, Regex<T> newline = Regex<T>::empty()) {
+            return Lexer<T, Positioned<R>, Word>(new LexerImpl::SimpleDerivationLexer<T, R, Word>(rules, newline));
+        }
 
         static Lexer<T, Positioned<R>, Word> make(std::initializer_list<Rule<T, R, Word>> rules, Regex<T> newline = Regex<T>::empty()) {
-            return Lexer<T, Positioned<R>, Word>(new LexerImpl::SimpleLexer<T, R, Word>(rules, newline));
+            return make_derivation_lexer(rules, newline);
         }
 
         std::vector<R> operator() (std::vector<T>& input) const {
             return _lexer->apply(input);
         }
 
-        template<class It>
+        template<std::input_iterator It>
         std::vector<R> operator() (It beg, It end) const {
             std::vector<T> input(beg, end);
             return _lexer->apply(input);

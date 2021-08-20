@@ -4,54 +4,56 @@
 
 using Regex = tfl::Regex<char>;
 
+auto nullable = tfl::RegexesDerivation<char>::nullable;
+
 TEST_CASE("Base cases nullability") {
-    REQUIRE( !Regex::empty().nullable() );
-    REQUIRE(  Regex::epsilon().nullable() );
-    REQUIRE( !Regex::literal('a').nullable() );
+    REQUIRE( !nullable(Regex::empty()) );
+    REQUIRE(  nullable(Regex::epsilon()) );
+    REQUIRE( !nullable(Regex::literal('a')) );
 }
 
 TEST_CASE("Combinators nullability") {
     GIVEN("Two nullable regex") {
         Regex l = Regex::epsilon();
         Regex r = Regex::epsilon();
-        REQUIRE( l.nullable() );
-        REQUIRE( r.nullable() );
+        REQUIRE( nullable(l) );
+        REQUIRE( nullable(r) );
 
         THEN("Their sequence is nullable") {
-            REQUIRE( (l & r).nullable() );
+            REQUIRE( nullable(l & r) );
         }
         THEN("Their disjunction is nullable") {
-            REQUIRE( (l | r).nullable() );
+            REQUIRE( nullable(l | r) );
         }
     }
 
     GIVEN("One nullable/ one non-nullable regex") {
         Regex l = Regex::epsilon();
         Regex r = Regex::literal('a');
-        REQUIRE(  l.nullable() );
-        REQUIRE( !r.nullable() );
+        REQUIRE(  nullable(l) );
+        REQUIRE( !nullable(r) );
 
         THEN("Their sequences are non-nullable") {
-            REQUIRE( !(l & r).nullable() );
-            REQUIRE( !(r & l).nullable() );
+            REQUIRE( !nullable(l & r) );
+            REQUIRE( !nullable(r & l) );
         }
         THEN("Their disjunctions are nullable") {
-            REQUIRE( (l | r).nullable() );
-            REQUIRE( (r | l).nullable() );
+            REQUIRE( nullable(l | r) );
+            REQUIRE( nullable(r | l) );
         }
     }
 
     GIVEN("Two non-nullable regex") {
         Regex l = Regex::literal('a');
         Regex r = Regex::literal('a');
-        REQUIRE( !l.nullable() );
-        REQUIRE( !r.nullable() );
+        REQUIRE( !nullable(l) );
+        REQUIRE( !nullable(r) );
 
         THEN("Their sequence is non-nullable") {
-            REQUIRE( !(l & r).nullable() );
+            REQUIRE( !nullable(l & r) );
         }
         THEN("Their disjunction is non-nullable") {
-            REQUIRE( !(l | r).nullable() );
+            REQUIRE( !nullable(l | r) );
         }
     }
 }
@@ -59,19 +61,19 @@ TEST_CASE("Combinators nullability") {
 TEST_CASE("Closure nullability") {
     GIVEN("A nullable regex") {
         Regex r = Regex::epsilon();
-        REQUIRE( r.nullable() );
+        REQUIRE( nullable(r) );
 
         THEN("Its closure is nullable") {
-            REQUIRE( (*r).nullable() );
+            REQUIRE( nullable(*r) );
         }
     }
 
     GIVEN("A non-nullable regex") {
         Regex r = Regex::literal('a');
-        REQUIRE( !r.nullable() );
+        REQUIRE( !nullable(r) );
 
         THEN("Its closure is nullable") {
-            REQUIRE( (*r).nullable() );
+            REQUIRE( nullable(*r) );
         }
     }
 }

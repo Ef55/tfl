@@ -2,151 +2,158 @@
 
 #include "tfl/Regex.hpp"
 
-TEMPLATE_TEST_CASE("Regex input tests", "[template]", tfl::Regex<char>) {
+TEMPLATE_TEST_CASE("Regex input tests", "[template]", tfl::RegexesDerivation<char>) {
+    using Regex = tfl::Regex<char>;
+    
+    auto accepts = [](Regex r, std::initializer_list<char> ls){ return TestType::accepts(r, ls); };
 
     SECTION("Empty") {
-        TestType r = TestType::empty();
+        Regex r = Regex::empty();
 
-        REQUIRE( !r.accepts({}) );
-        REQUIRE( !r.accepts({'a'}) );
-        REQUIRE( !r.accepts({'b'}) );
-        REQUIRE( !r.accepts({'a', 'b'}) );
+        REQUIRE( !accepts(r, {}) );
+        REQUIRE( !accepts(r, {'a'}) );
+        REQUIRE( !accepts(r, {'b'}) );
+        REQUIRE( !accepts(r, {'a', 'b'}) );
     }
 
     SECTION("Epsilon") {
-        TestType r = TestType::epsilon();
+        Regex r = Regex::epsilon();
 
-        REQUIRE( r.accepts({}) );
-        REQUIRE( !r.accepts({'a'}) );
-        REQUIRE( !r.accepts({'b'}) );
-        REQUIRE( !r.accepts({'a', 'b'}) );
+        REQUIRE( accepts(r, {}) );
+        REQUIRE( !accepts(r, {'a'}) );
+        REQUIRE( !accepts(r, {'b'}) );
+        REQUIRE( !accepts(r, {'a', 'b'}) );
     }
 
     SECTION("Literal") {
 
         SECTION("'a'") {
-            TestType a = TestType::literal('a');
+            Regex a = Regex::literal('a');
 
-            REQUIRE( !a.accepts({}) );
-            REQUIRE( a.accepts({'a'}) );
-            REQUIRE( !a.accepts({'b'}) );
-            REQUIRE( !a.accepts({'a', 'b'}) );
+            REQUIRE( !accepts(a, {}) );
+            REQUIRE( accepts(a, {'a'}) );
+            REQUIRE( !accepts(a, {'b'}) );
+            REQUIRE( !accepts(a, {'a', 'b'}) );
         }
 
         SECTION("'b'") {
-            TestType b = TestType::literal('b');
+            Regex b = Regex::literal('b');
 
-            REQUIRE( !b.accepts({}) );
-            REQUIRE( !b.accepts({'a'}) );
-            REQUIRE( b.accepts({'b'}) );
-            REQUIRE( !b.accepts({'a', 'b'}) );
+            REQUIRE( !accepts(b, {}) );
+            REQUIRE( !accepts(b, {'a'}) );
+            REQUIRE( accepts(b, {'b'}) );
+            REQUIRE( !accepts(b, {'a', 'b'}) );
         }
     }
 
     SECTION("Disjunction") {
-        TestType a = TestType::literal('a');
-        TestType b = TestType::literal('b');
-        TestType e = TestType::epsilon();
+        Regex a = Regex::literal('a');
+        Regex b = Regex::literal('b');
+        Regex e = Regex::epsilon();
 
-        TestType ab = a | b;
-        TestType r = ab | e;
+        Regex ab = a | b;
+        Regex r = ab | e;
 
-        REQUIRE( !ab.accepts({}) );
-        REQUIRE( ab.accepts({'a'}) );
-        REQUIRE( ab.accepts({'b'}) );
-        REQUIRE( !ab.accepts({'a', 'b'}) );
+        REQUIRE( !accepts(ab, {}) );
+        REQUIRE( accepts(ab, {'a'}) );
+        REQUIRE( accepts(ab, {'b'}) );
+        REQUIRE( !accepts(ab, {'a', 'b'}) );
 
 
-        REQUIRE( r.accepts({}) );
-        REQUIRE( r.accepts({'a'}) );
-        REQUIRE( r.accepts({'b'}) );
-        REQUIRE( !r.accepts({'a', 'b'}) );
+        REQUIRE( accepts(r, {}) );
+        REQUIRE( accepts(r, {'a'}) );
+        REQUIRE( accepts(r, {'b'}) );
+        REQUIRE( !accepts(r, {'a', 'b'}) );
     }
 
     SECTION("Sequence") {
-        TestType a = TestType::literal('a');
-        TestType b = TestType::literal('b');
-        TestType e = TestType::epsilon();
+        Regex a = Regex::literal('a');
+        Regex b = Regex::literal('b');
+        Regex e = Regex::epsilon();
 
-        TestType ab = a & b;
-        TestType abe = ab & e;
-        TestType aba = ab & a;
+        Regex ab = a & b;
+        Regex abe = ab & e;
+        Regex aba = ab & a;
 
-        REQUIRE( !ab.accepts({}) );
-        REQUIRE( !ab.accepts({'a'}) );
-        REQUIRE( !ab.accepts({'b'}) );
-        REQUIRE( ab.accepts({'a', 'b'}) );
-        REQUIRE( !ab.accepts({'a', 'b', 'a'}) );
+        REQUIRE( !accepts(ab, {}) );
+        REQUIRE( !accepts(ab, {'a'}) );
+        REQUIRE( !accepts(ab, {'b'}) );
+        REQUIRE( accepts(ab, {'a', 'b'}) );
+        REQUIRE( !accepts(ab, {'a', 'b', 'a'}) );
 
-        REQUIRE( !abe.accepts({}) );
-        REQUIRE( !abe.accepts({'a'}) );
-        REQUIRE( !abe.accepts({'b'}) );
-        REQUIRE( abe.accepts({'a', 'b'}) );
-        REQUIRE( !abe.accepts({'a', 'b', 'a'}) );
+        REQUIRE( !accepts(abe, {}) );
+        REQUIRE( !accepts(abe, {'a'}) );
+        REQUIRE( !accepts(abe, {'b'}) );
+        REQUIRE( accepts(abe, {'a', 'b'}) );
+        REQUIRE( !accepts(abe, {'a', 'b', 'a'}) );
 
-        REQUIRE( !aba.accepts({}) );
-        REQUIRE( !aba.accepts({'a'}) );
-        REQUIRE( !aba.accepts({'b'}) );
-        REQUIRE( !aba.accepts({'a', 'b'}) );
-        REQUIRE( aba.accepts({'a', 'b', 'a'}) );
+        REQUIRE( !accepts(aba, {}) );
+        REQUIRE( !accepts(aba, {'a'}) );
+        REQUIRE( !accepts(aba, {'b'}) );
+        REQUIRE( !accepts(aba, {'a', 'b'}) );
+        REQUIRE( accepts(aba, {'a', 'b', 'a'}) );
     }
 
     SECTION("Closure") {
-        TestType a = TestType::literal('a');
-        TestType b = TestType::literal('b');
-        TestType c = TestType::literal('c');
+        Regex a = Regex::literal('a');
+        Regex b = Regex::literal('b');
+        Regex c = Regex::literal('c');
 
-        TestType r = *((a & b) | c);
+        Regex r = *((a & b) | c);
 
-        REQUIRE( r.accepts({}) );
-        REQUIRE( !r.accepts({'a'}) );
-        REQUIRE( !r.accepts({'b'}) );
-        REQUIRE( r.accepts({'c'}) );
-        REQUIRE( r.accepts({'a', 'b'}) );
-        REQUIRE( r.accepts({'a', 'b', 'c'}) );
-        REQUIRE( r.accepts({'a', 'b', 'a', 'b'}) );
-        REQUIRE( r.accepts({'c', 'a', 'b', 'a', 'b', 'c'}) );
+        REQUIRE( accepts(r, {}) );
+        REQUIRE( !accepts(r, {'a'}) );
+        REQUIRE( !accepts(r, {'b'}) );
+        REQUIRE( accepts(r, {'c'}) );
+        REQUIRE( accepts(r, {'a', 'b'}) );
+        REQUIRE( accepts(r, {'a', 'b', 'c'}) );
+        REQUIRE( accepts(r, {'a', 'b', 'a', 'b'}) );
+        REQUIRE( accepts(r, {'c', 'a', 'b', 'a', 'b', 'c'}) );
     }
 
 }
 
-TEMPLATE_TEST_CASE("Regex utilities input tests", "[template]", tfl::Regexes<char>) {
+TEMPLATE_TEST_CASE("Regex utilities input tests", "[template]", tfl::RegexesDerivation<char>) {
+    using Regex = tfl::Regex<char>;
+    using Regexes = tfl::Regexes<char>;
+
+    auto accepts = [](Regex r, std::initializer_list<char> ls){ return TestType::accepts(r, ls); };
 
     SECTION("Word") {
-        auto r = TestType::word({'t', 'o', 'm', 'a', 't', 'o'});
+        auto r = Regexes::word({'t', 'o', 'm', 'a', 't', 'o'});
 
-        REQUIRE( !r.accepts({}) );
-        REQUIRE( r.accepts({'t', 'o', 'm', 'a', 't', 'o'}) );
-        REQUIRE( !r.accepts({'o', 'm', 'a', 't', 'o'}) );
-        REQUIRE( !r.accepts({'t', 'o', 'm', 'a', 't'}) );
-        REQUIRE( !r.accepts({'t', 'o', 'm', 'a', 't', 'o', 'e', 's'}) );
-        REQUIRE( !r.accepts({'t', 'o', 'm', 'e', 't', 'o'}) );
+        REQUIRE( !accepts(r, {}) );
+        REQUIRE( accepts(r, {'t', 'o', 'm', 'a', 't', 'o'}) );
+        REQUIRE( !accepts(r, {'o', 'm', 'a', 't', 'o'}) );
+        REQUIRE( !accepts(r, {'t', 'o', 'm', 'a', 't'}) );
+        REQUIRE( !accepts(r, {'t', 'o', 'm', 'a', 't', 'o', 'e', 's'}) );
+        REQUIRE( !accepts(r, {'t', 'o', 'm', 'e', 't', 'o'}) );
     }
 
     SECTION("Any (literal)") {
-        auto r = TestType::any_of({'t', 'o', 'm', 'a'});
+        auto r = Regexes::any_of({'t', 'o', 'm', 'a'});
 
-        REQUIRE( !r.accepts({}) );
-        REQUIRE( r.accepts({'t'}) );
-        REQUIRE( r.accepts({'o'}) );
-        REQUIRE( r.accepts({'m'}) );
-        REQUIRE( r.accepts({'a'}) );
-        REQUIRE( !r.accepts({'t', 'o', 'm', 'a'}) );
-        REQUIRE( !r.accepts({'t', 'o', 'm', 'a', 't', 'o'}) );
+        REQUIRE( !accepts(r, {}) );
+        REQUIRE( accepts(r, {'t'}) );
+        REQUIRE( accepts(r, {'o'}) );
+        REQUIRE( accepts(r, {'m'}) );
+        REQUIRE( accepts(r, {'a'}) );
+        REQUIRE( !accepts(r, {'t', 'o', 'm', 'a'}) );
+        REQUIRE( !accepts(r, {'t', 'o', 'm', 'a', 't', 'o'}) );
     }
 
     SECTION("Range") {
-        auto r = TestType::range('2', '4');
+        auto r = Regexes::range('2', '4');
 
-        REQUIRE( !r.accepts({'0'}) );
-        REQUIRE( !r.accepts({'1'}) );
-        REQUIRE( r.accepts({'2'}) );
-        REQUIRE( r.accepts({'3'}) );
-        REQUIRE( r.accepts({'4'}) );
-        REQUIRE( !r.accepts({'5'}) );
-        REQUIRE( !r.accepts({'6'}) );
-        REQUIRE( !r.accepts({'7'}) );
-        REQUIRE( !r.accepts({'8'}) );
-        REQUIRE( !r.accepts({'9'}) );
+        REQUIRE( !accepts(r, {'0'}) );
+        REQUIRE( !accepts(r, {'1'}) );
+        REQUIRE( accepts(r, {'2'}) );
+        REQUIRE( accepts(r, {'3'}) );
+        REQUIRE( accepts(r, {'4'}) );
+        REQUIRE( !accepts(r, {'5'}) );
+        REQUIRE( !accepts(r, {'6'}) );
+        REQUIRE( !accepts(r, {'7'}) );
+        REQUIRE( !accepts(r, {'8'}) );
+        REQUIRE( !accepts(r, {'9'}) );
     }
 }

@@ -5,6 +5,14 @@
 
 namespace tfl {
 
+    template<typename T, typename... Args>
+    struct is_among : std::integral_constant<bool, (std::is_same_v<T, Args> || ...)> {};
+
+    template<typename T, typename... Args>
+    inline constexpr bool is_among_v = is_among<T, Args...>::value;
+
+
+
     template<typename> class Regex;
     template<typename, typename> class Parser;
 
@@ -45,6 +53,9 @@ namespace tfl {
 
     template<typename T>
     struct is_regex<Regex<T>> : std::true_type {};
+
+    template<typename R> requires  std::derived_from<R, Regex<typename R::TokenType>>
+    struct is_regex<R> : std::true_type {};
 
     template<typename T>
     inline constexpr bool is_regex_v = is_regex<T>::value;
