@@ -15,7 +15,7 @@ static class: tfl::Regexes<char> {
 
     // String
     Regex const quote = literal('"');
-    Regex const str_char = literal([](char c){ return c != '"' && c != '\\'; });
+    Regex const str_char = literal([](char c){ return c != '"' && c != '\\' && (unsigned char)c >= u' '; });
     Regex const ctr_char = any_of("\"\\/bfnrt"_v);
     Regex const hex_digit = range('0', '9') | range('a', 'f') | range('A', 'F');
     Regex const unicode = literal('u') & hex_digit & hex_digit & hex_digit & hex_digit;
@@ -34,8 +34,8 @@ static class: tfl::Regexes<char> {
     Regex const digit = range('0', '9');
 
     Regex const number_base = opt(literal('-')) & (literal('0') | (digit19 & *digit));
-    Regex const number_fraction = literal('.') & *digit;
-    Regex const number_exponent = any_of("eE"_v) & opt(any_of("+-"_v)) & *digit;
+    Regex const number_fraction = literal('.') & +digit;
+    Regex const number_exponent = any_of("eE"_v) & opt(any_of("+-"_v)) & +digit;
 
     Regex const number = number_base & opt(number_fraction) & opt(number_exponent);
 

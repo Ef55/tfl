@@ -51,9 +51,13 @@ private:
             [](auto p){ return std::pair{p.first.first.second, p.second}; }
         );
 
-        Parser<Json> object_body = eps(Json::object()) | repsep(key_val, sep).map(
-            [](auto v){ return Json::object(v.cbegin(), v.cend()); }
-        );
+        Parser<Json> object_body = 
+            whitespace.map(
+                [](auto){ return Json::object(); }
+            ) | 
+            repsep1(key_val, sep).map(
+                [](auto v){ return Json::object(v.cbegin(), v.cend()); }
+            );
 
         Parser<Json> object = (oobj & object_body & cobj).map(
             [](auto p){ return p.first.second; }

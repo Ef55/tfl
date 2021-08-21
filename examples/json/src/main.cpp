@@ -1,5 +1,6 @@
 #include <iostream>
 #include <fstream>
+#include <stdexcept>
 
 #include "Token.hpp"
 #include "Lexer.hpp"
@@ -21,19 +22,25 @@ int main(int argc, char** argv) {
     std::string input((std::istreambuf_iterator<char>(file)), (std::istreambuf_iterator<char>()));
     file.close();
 
-    std::cout << "Input:\n" << input << std::endl;
+    try{
+        std::cout << "Input:\n" << input << std::endl;
 
-    std::cout << "Tokens:\n";
-    auto tokens = lex(input);
-    for(auto token: tokens) {
-        std::cout << token << std::flush;
+        std::cout << "Tokens:\n";
+        auto tokens = lex(input);
+        for(auto token: tokens) {
+            std::cout << token << std::flush;
+        }
+        std::cout << std::endl;
+        
+
+        std::cout << "Json:\n";
+        auto json = parse(tokens);
+        std::cout << json << std::endl;
+
+        return 0;
     }
-    std::cout << std::endl;
-    
-
-    std::cout << "Json:\n";
-    auto json = parse(tokens);
-    std::cout << json << std::endl;
-
-    return 0;
+    catch(std::exception& e) {
+        std::cerr << e.what() << std::endl;
+        return 1;
+    }
 }
