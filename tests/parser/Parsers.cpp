@@ -43,7 +43,7 @@ TEST_CASE("Additional combinators") {
 
     SECTION("Rep Sep") {
         auto elem = Parsers::elem([](auto c){ return 'a' <= c && c<= 'z'; });
-        auto sep = Parsers::elem([](auto c){ return c == ','; });
+        auto sep = Parsers::elem(',');
         Parser<std::vector<char>> p = Parsers::repsep(elem, sep);
 
         CHECK( p({}) == std::vector<char>{} );
@@ -60,7 +60,7 @@ TEST_CASE("Additional combinators") {
 
     SECTION("Rep Sep 1") {
         auto elem = Parsers::elem([](auto c){ return 'a' <= c && c<= 'z'; });
-        auto sep = Parsers::elem([](auto c){ return c == ','; });
+        auto sep = Parsers::elem(',');
         Parser<std::vector<char>> p = Parsers::repsep1(elem, sep);
 
         CHECK( p({'a'}) == std::vector<char>{'a'} );

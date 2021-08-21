@@ -70,7 +70,7 @@ TEST_CASE("Simple usecase") {
 
     auto alpha = Regexes::range('a', 'z') | Regexes::range('A', 'Z');
 
-    auto digit = Regexes::literal([](auto chr){ return ('0' <= chr && chr <= '9'); });
+    auto digit = Regexes::range('0', '9');
 
     auto eol = Regexes::literal('\n');
 

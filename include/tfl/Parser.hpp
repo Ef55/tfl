@@ -231,6 +231,11 @@ namespace tfl {
             return Parser<T, T>(new ParserImpl::Elem<T>(std::forward<F>(predicate)));
         }
 
+        template<typename Dummy> requires std::same_as<T, Dummy> && std::same_as<R, Dummy> // Dirty trick
+        static Parser<T, T> elem(Dummy const& i) {
+            return Parser<T, T>(new ParserImpl::Elem<T>([i](T const& val){ return i == val; }));
+        }
+
         static Parser<T, R> eps(R const& val) {
             return Parser<T, R>(new ParserImpl::Epsilon<T, R>(val));
         }
@@ -323,7 +328,7 @@ namespace tfl {
         }
 
         static Parser<T, T> elem(T const& val) {
-            return Parser<T, T>::elem([val](T const& i){ return i == val; });
+            return Parser<T, T>::elem(val);
         }
 
         static Parser<T, T> any() {

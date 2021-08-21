@@ -14,7 +14,7 @@ using Recursive = tfl::Recursive<char, R>;
 TEST_CASE("Parser input tests") {
 
     SECTION("Elem") {
-        Parser<char> p(Parser<char>::elem([](char c){ return c == 'a'; }));
+        Parser<char> p(Parser<char>::elem('a'));
 
         CHECK_THROWS( p({}) );
         CHECK( p({'a'}) == 'a' );
@@ -34,7 +34,7 @@ TEST_CASE("Parser input tests") {
     }
 
     SECTION("Disjunction") {
-        Parser<char> p1(Parser<char>::elem([](char c){ return c == 'a'; }));
+        Parser<char> p1(Parser<char>::elem('a'));
         Parser<char> p2(Parser<char>::eps('b'));
         Parser<char> p = p1 | p2;
 
@@ -48,7 +48,7 @@ TEST_CASE("Parser input tests") {
 
     SECTION("Sequence") {
         using R = std::pair<char, int>;
-        Parser<char> p1(Parser<char>::elem([](char c){ return c == 'a'; }));
+        Parser<char> p1(Parser<char>::elem('a'));
         Parser<int> p2(Parser<int>::eps(1));
         Parser<R> p = p1 & p2;
 
@@ -123,11 +123,11 @@ TEST_CASE("Cross-recursion") {
     Recursive<int> rec2;
 
     rec1 = Parser<int>::eps(0) | 
-        (Parser<char>::elem([](char c){ return c=='a'; }) & (rec1 | rec2))
+        (Parser<char>::elem('a') & (rec1 | rec2))
             .map([](auto p){ return p.second + 1; });
 
     rec2 =  
-        (Parser<char>::elem([](char c){ return c=='b'; }) & (rec1 | rec2))
+        (Parser<char>::elem('b') & (rec1 | rec2))
             .map([](auto p){ return p.second + 2; });
     
     Parser<int> p = rec1 | rec2;
