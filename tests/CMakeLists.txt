@@ -3,6 +3,7 @@ set(TEST_SRC
     "lexer/Regex.cpp"
     "lexer/RegexDerivation.cpp"
     "lexer/RegexMetrics.cpp"
+    "lexer/RegexPrinter.cpp"
     "parser/Parser.cpp"
     "parser/Parsers.cpp"
 )

@@ -149,6 +149,55 @@ namespace tfl {
     };
 
     template<typename T>
+    struct RegexesPrinter {
+    private:
+        enum class Precedence {
+            ATOM = 1,
+            SEQ = 2,
+            DISJ = 3,
+        };
+
+        using Result = std::pair<std::string, Precedence>;
+        static class: public RegexMatcher<T, Result> {
+            using RegexMatcher<T, Result>::rec;
+
+            inline static std::string paren_if_gtr(Result const& r, Precedence pri) {
+                return r.second > pri ? '(' + r.first + ')' : r.first;
+            }
+
+            inline static std::string paren_if_geq(Result const& r, Precedence pri) {
+                return r.second >= pri ? '(' + r.first + ')' : r.first;
+            }
+
+            inline static Result unop_rightassoc(std::string const& op, Result const& r, Precedence pri) {
+                return {op + paren_if_gtr(r, pri), pri};
+            }
+
+            inline static Result binop_leftassoc(std::string const& op, Result const& l, Result const& r, Precedence pri) {
+                return {paren_if_gtr(l, pri) + op + paren_if_geq(r, pri), pri};
+            }
+
+        public:
+            virtual Result empty() const { return {"∅", Precedence::ATOM}; }
+            virtual Result epsilon() const { return {"ε", Precedence::ATOM}; }
+            virtual Result literal(std::function<bool(T)> const& predicate) const { return {"a", Precedence::ATOM}; }
+            virtual Result disjunction(Regex<T> const& left, Regex<T> const& right) const { 
+                return binop_leftassoc(" | ", rec(left), rec(right), Precedence::DISJ);
+            }
+            virtual Result sequence(Regex<T> const& left, Regex<T> const& right) const {
+                return binop_leftassoc("", rec(left), rec(right), Precedence::SEQ);
+            }
+            virtual Result kleene_star(Regex<T> const& regex) const {
+                return unop_rightassoc("*", rec(regex), Precedence::ATOM);
+            }
+        } constexpr printer{};
+    public:
+        static std::string to_string(Regex<T> const& regex) {
+            return regex.match(printer).first;
+        }
+    };
+
+    template<typename T>
     struct RegexesMetrics {
     public: 
         using Size = std::size_t;

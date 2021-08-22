@@ -8,7 +8,7 @@ using Size = tfl::RegexesMetrics<char>::Size;
 static auto size = tfl::RegexesMetrics<char>::size;
 static auto depth = tfl::RegexesMetrics<char>::depth;
 
-static void test_size_depth(Regex const& regex, char const* name, Size exp_size, Size exp_depth) {
+static inline void test_size_depth(Regex const& regex, char const* name, Size exp_size, Size exp_depth) {
     GIVEN(name) {
         THEN("Its size is " << exp_size) {
             CHECK( size(regex) == exp_size );
@@ -39,10 +39,10 @@ TEST_CASE("Compacted regexes have expected size/depth") {
 
     auto test_singleton = [](auto regex, auto name){ test_size_depth(regex, name, 1, 1); };
 
-    test_singleton(a | f, "a|⊥");
-    test_singleton(f | a, "⊥|a");
-    test_singleton(a & f, "a⊥");
-    test_singleton(f & a, "⊥a");
+    test_singleton(a | f, "a|∅");
+    test_singleton(f | a, "∅|a");
+    test_singleton(a & f, "a∅");
+    test_singleton(f & a, "∅a");
     test_singleton(a & e, "aε");
     test_singleton(e & a, "εa");
 }
