@@ -49,6 +49,10 @@ namespace tfl {
             bool epsilon() const { return true; }
         } constexpr is_epsilon{};
 
+        static class IsClosure: public IsMatcher {
+            bool kleene_star(Regex const&) const { return true; }
+        } constexpr is_closure{};
+
         struct Empty {
             template<typename R> inline R match(RegexMatcher<T, R> const& matcher) const { return matcher.empty(); }
         };
@@ -140,7 +144,15 @@ namespace tfl {
         }
 
         Regex operator* () const {
-            return Regex(KleeneStar(*this));
+            if(this->match(is_closure)) {
+                return *this;
+            }
+            else if(this->match(is_empty) | this->match(is_epsilon)) {
+                return epsilon();
+            }
+            else {
+                return Regex(KleeneStar(*this));
+            }
         }
 
         Regex operator+ () const {

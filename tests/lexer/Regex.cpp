@@ -6,6 +6,8 @@
 
 using Regex = tfl::Regex<char>;
 using Regexes = tfl::Regexes<char>;
+
+static auto to_string = tfl::RegexesPrinter<char>::to_string;
  
 TEMPLATE_TEST_CASE("Regexes accept/reject as expected", "[template]", tfl::RegexesDerivation<char>) {
     auto accepts = [](Regex r, std::initializer_list<char> ls){ return TestType::accepts(r, ls); };
@@ -124,30 +126,54 @@ TEMPLATE_TEST_CASE("Compacted regexes accept/reject as expected", "[template]", 
     auto a = Regex::literal('a');
     auto b = Regex::literal('b');
 
-    std::vector<std::vector<char>> inputs = {
-        {},
-        {'a'},
-        {'b'},
-        {'a', 'b'}
-    };
-
-    auto test = [&inputs, &accepts](auto compacted, auto compacted_name, auto expected, auto expected_name){
+    auto test_fun = [&accepts](auto inputs, auto compacted, auto compacted_name, auto expected){
         GIVEN(compacted_name) {
-
-            THEN("it behaves as " << expected_name) {
+            THEN("it behaves as " << to_string(expected)) {
                 for(auto input: inputs) {
+                    INFO( "Input: " << std::string(input.cbegin(), input.cend()) );
                     CHECK( accepts(compacted, input) == accepts(expected, input) );
                 }
             }
         } 
     };
 
-    test(a | f, "a|⊥", a, "a");
-    test(f | a, "⊥|a", a, "a");
-    test(a & f, "a⊥", f, "⊥");
-    test(f & a, "⊥a", f, "⊥");
-    test(a & e, "aε", a, "a");
-    test(e & a, "εa", a, "a");
+
+    SECTION("Sequence/disjunction with empty/epsilon"){
+        std::vector<std::vector<char>> inputs = {
+            {},
+            {'a'},
+            {'b'},
+            {'a', 'b'}
+        };
+        auto test = [&inputs, &test_fun](auto compacted, auto compacted_name, auto expected){ 
+            test_fun(inputs, compacted, compacted_name, expected); 
+        };
+
+        test(a | f, "a | ∅", a);
+        test(f | a, "∅ | a", a);
+        test(a & f, "a∅", f);
+        test(f & a, "∅a", f);
+        test(a & e, "aε", a);
+        test(e & a, "εa", a);
+    }
+
+    SECTION("Closure"){
+        std::vector<std::vector<char>> inputs = {
+            {},
+            {'a'},
+            {'a', 'a', 'a'},
+            {'b', 'a', 'a'},
+            {'a', 'b', 'a'},
+            {'a', 'a', 'a', 'a'},
+        };
+        auto test = [&inputs, &test_fun](auto compacted, auto compacted_name, auto expected){ 
+            test_fun(inputs, compacted, compacted_name, expected); 
+        };
+
+        test(*e, "*ε", e);
+        test(*f, "*∅", e);
+        test(**a, "**a", *a);
+    }
 }
 
 TEMPLATE_TEST_CASE("Additional regex combinators accept/reject as expected", "[template]", tfl::RegexesDerivation<char>) {

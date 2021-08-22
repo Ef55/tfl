@@ -39,10 +39,13 @@ TEST_CASE("Compacted regexes have expected size/depth") {
 
     auto test_singleton = [](auto regex, auto name){ test_size_depth(regex, name, 1, 1); };
 
-    test_singleton(a | f, "a|∅");
-    test_singleton(f | a, "∅|a");
+    test_singleton(a | f, "a | ∅");
+    test_singleton(f | a, "∅ | a");
     test_singleton(a & f, "a∅");
     test_singleton(f & a, "∅a");
     test_singleton(a & e, "aε");
     test_singleton(e & a, "εa");
+    test_singleton(*e, "*ε");
+    test_singleton(*f, "*∅");
+    test_size_depth(**a, "**a", 2, 2);
 }
