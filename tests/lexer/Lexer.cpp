@@ -43,7 +43,7 @@ void test_lexer_line_positioned(tfl::Lexer<char, tfl::Positioned<R>> lexer, char
 
         for(size_t i(0); i < expected.size(); ++i) {
             INFO( std::to_string(i) + "th word" );
-            REQUIRE( result[i] == tfl::Positioned<R>(1, expected[i].first, expected[i].second));
+            CHECK( result[i] == tfl::Positioned<R>(1, expected[i].first, expected[i].second));
         }
     }
 }
@@ -59,7 +59,7 @@ void test_lexer(tfl::Lexer<char, R> lexer, char const* name, char const* cinput,
 
         for(size_t i(0); i < expected.size(); ++i) {
             INFO( std::to_string(i) + "th word" );
-            REQUIRE( result[i] == expected[i] );
+            CHECK( result[i] == expected[i] );
         }
     }
 }

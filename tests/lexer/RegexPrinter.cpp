@@ -9,36 +9,40 @@ static auto to_string = tfl::RegexesPrinter<char>::to_string;
 
 TEST_CASE("Regexes are printed as expected") {
     auto a = Regexes::literal('a');
+    auto b = Regexes::literal('b');
+    auto c = Regexes::literal('c');
     auto f = Regexes::empty();
     auto e = Regexes::epsilon();
 
     SECTION("Base cases") {
         CHECK( to_string(a) == "a" );
+        CHECK( to_string(b) == "b" );
+        CHECK( to_string(c) == "c" );
         CHECK( to_string(f) == "∅" );
         CHECK( to_string(e) == "ε" );
-        CHECK( to_string(a & a) == "aa" );
-        CHECK( to_string(a | a) == "a | a" );
-        CHECK( to_string(*a) == "*a" );
+        CHECK( to_string(a & b) == "ab" );
+        CHECK( to_string(a | b) == "a | b" );
+        CHECK( to_string(*c) == "*c" );
     }
 
     SECTION("Sequence associativity") {
-        CHECK( to_string(a & a & a) == "aaa" );
-        CHECK( to_string(a & (a & a)) == "a(aa)" );
+        CHECK( to_string(a & b & c) == "abc" );
+        CHECK( to_string(a & (b & c)) == "a(bc)" );
     }
 
     SECTION("Disjunction associativity") {
-        CHECK( to_string(a | a | a) == "a | a | a" );
-        CHECK( to_string(a | (a | a)) == "a | (a | a)" );
+        CHECK( to_string(a | b | c) == "a | b | c" );
+        CHECK( to_string(a | (b | c)) == "a | (b | c)" );
     }
 
     SECTION("Sequence/disjunction combinations") {
-        CHECK( to_string((a & a) | (a & a)) == "aa | aa" );
-        CHECK( to_string(a & (a | a) & a) == "a(a | a)a" );
+        CHECK( to_string((a & b) | (c & a)) == "ab | ca" );
+        CHECK( to_string(a & (b | c) & a) == "a(b | c)a" );
     }
 
     SECTION("Closure/binary combinations") {
-        CHECK( to_string((*a & a) | a) == "*aa | a" );
-        CHECK( to_string(*(a & a) | a) == "*(aa) | a" );
-        CHECK( to_string(*((a & a) | a)) == "*(aa | a)" );
+        CHECK( to_string((*a & b) | c) == "*ab | c" );
+        CHECK( to_string(*(a & b) | c) == "*(ab) | c" );
+        CHECK( to_string(*((a & b) | c)) == "*(ab | c)" );
     }
 }

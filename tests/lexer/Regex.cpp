@@ -15,19 +15,19 @@ TEMPLATE_TEST_CASE("Regexes accept/reject as expected", "[template]", tfl::Regex
     SECTION("Empty") {
         Regex r = Regex::empty();
 
-        REQUIRE( !accepts(r, {}) );
-        REQUIRE( !accepts(r, {'a'}) );
-        REQUIRE( !accepts(r, {'b'}) );
-        REQUIRE( !accepts(r, {'a', 'b'}) );
+        CHECK( !accepts(r, {}) );
+        CHECK( !accepts(r, {'a'}) );
+        CHECK( !accepts(r, {'b'}) );
+        CHECK( !accepts(r, {'a', 'b'}) );
     }
 
     SECTION("Epsilon") {
         Regex r = Regex::epsilon();
 
-        REQUIRE( accepts(r, {}) );
-        REQUIRE( !accepts(r, {'a'}) );
-        REQUIRE( !accepts(r, {'b'}) );
-        REQUIRE( !accepts(r, {'a', 'b'}) );
+        CHECK( accepts(r, {}) );
+        CHECK( !accepts(r, {'a'}) );
+        CHECK( !accepts(r, {'b'}) );
+        CHECK( !accepts(r, {'a', 'b'}) );
     }
 
     SECTION("Literal") {
@@ -35,19 +35,19 @@ TEMPLATE_TEST_CASE("Regexes accept/reject as expected", "[template]", tfl::Regex
         SECTION("'a'") {
             Regex a = Regex::literal('a');
 
-            REQUIRE( !accepts(a, {}) );
-            REQUIRE( accepts(a, {'a'}) );
-            REQUIRE( !accepts(a, {'b'}) );
-            REQUIRE( !accepts(a, {'a', 'b'}) );
+            CHECK( !accepts(a, {}) );
+            CHECK( accepts(a, {'a'}) );
+            CHECK( !accepts(a, {'b'}) );
+            CHECK( !accepts(a, {'a', 'b'}) );
         }
 
         SECTION("'b'") {
             Regex b = Regex::literal('b');
 
-            REQUIRE( !accepts(b, {}) );
-            REQUIRE( !accepts(b, {'a'}) );
-            REQUIRE( accepts(b, {'b'}) );
-            REQUIRE( !accepts(b, {'a', 'b'}) );
+            CHECK( !accepts(b, {}) );
+            CHECK( !accepts(b, {'a'}) );
+            CHECK( accepts(b, {'b'}) );
+            CHECK( !accepts(b, {'a', 'b'}) );
         }
     }
 
@@ -59,16 +59,16 @@ TEMPLATE_TEST_CASE("Regexes accept/reject as expected", "[template]", tfl::Regex
         Regex ab = a | b;
         Regex r = ab | e;
 
-        REQUIRE( !accepts(ab, {}) );
-        REQUIRE( accepts(ab, {'a'}) );
-        REQUIRE( accepts(ab, {'b'}) );
-        REQUIRE( !accepts(ab, {'a', 'b'}) );
+        CHECK( !accepts(ab, {}) );
+        CHECK( accepts(ab, {'a'}) );
+        CHECK( accepts(ab, {'b'}) );
+        CHECK( !accepts(ab, {'a', 'b'}) );
 
 
-        REQUIRE( accepts(r, {}) );
-        REQUIRE( accepts(r, {'a'}) );
-        REQUIRE( accepts(r, {'b'}) );
-        REQUIRE( !accepts(r, {'a', 'b'}) );
+        CHECK( accepts(r, {}) );
+        CHECK( accepts(r, {'a'}) );
+        CHECK( accepts(r, {'b'}) );
+        CHECK( !accepts(r, {'a', 'b'}) );
     }
 
     SECTION("Sequence") {
@@ -80,23 +80,23 @@ TEMPLATE_TEST_CASE("Regexes accept/reject as expected", "[template]", tfl::Regex
         Regex abe = ab & e;
         Regex aba = ab & a;
 
-        REQUIRE( !accepts(ab, {}) );
-        REQUIRE( !accepts(ab, {'a'}) );
-        REQUIRE( !accepts(ab, {'b'}) );
-        REQUIRE( accepts(ab, {'a', 'b'}) );
-        REQUIRE( !accepts(ab, {'a', 'b', 'a'}) );
+        CHECK( !accepts(ab, {}) );
+        CHECK( !accepts(ab, {'a'}) );
+        CHECK( !accepts(ab, {'b'}) );
+        CHECK( accepts(ab, {'a', 'b'}) );
+        CHECK( !accepts(ab, {'a', 'b', 'a'}) );
 
-        REQUIRE( !accepts(abe, {}) );
-        REQUIRE( !accepts(abe, {'a'}) );
-        REQUIRE( !accepts(abe, {'b'}) );
-        REQUIRE( accepts(abe, {'a', 'b'}) );
-        REQUIRE( !accepts(abe, {'a', 'b', 'a'}) );
+        CHECK( !accepts(abe, {}) );
+        CHECK( !accepts(abe, {'a'}) );
+        CHECK( !accepts(abe, {'b'}) );
+        CHECK( accepts(abe, {'a', 'b'}) );
+        CHECK( !accepts(abe, {'a', 'b', 'a'}) );
 
-        REQUIRE( !accepts(aba, {}) );
-        REQUIRE( !accepts(aba, {'a'}) );
-        REQUIRE( !accepts(aba, {'b'}) );
-        REQUIRE( !accepts(aba, {'a', 'b'}) );
-        REQUIRE( accepts(aba, {'a', 'b', 'a'}) );
+        CHECK( !accepts(aba, {}) );
+        CHECK( !accepts(aba, {'a'}) );
+        CHECK( !accepts(aba, {'b'}) );
+        CHECK( !accepts(aba, {'a', 'b'}) );
+        CHECK( accepts(aba, {'a', 'b', 'a'}) );
     }
 
     SECTION("Closure") {
@@ -106,14 +106,14 @@ TEMPLATE_TEST_CASE("Regexes accept/reject as expected", "[template]", tfl::Regex
 
         Regex r = *((a & b) | c);
 
-        REQUIRE( accepts(r, {}) );
-        REQUIRE( !accepts(r, {'a'}) );
-        REQUIRE( !accepts(r, {'b'}) );
-        REQUIRE( accepts(r, {'c'}) );
-        REQUIRE( accepts(r, {'a', 'b'}) );
-        REQUIRE( accepts(r, {'a', 'b', 'c'}) );
-        REQUIRE( accepts(r, {'a', 'b', 'a', 'b'}) );
-        REQUIRE( accepts(r, {'c', 'a', 'b', 'a', 'b', 'c'}) );
+        CHECK( accepts(r, {}) );
+        CHECK( !accepts(r, {'a'}) );
+        CHECK( !accepts(r, {'b'}) );
+        CHECK( accepts(r, {'c'}) );
+        CHECK( accepts(r, {'a', 'b'}) );
+        CHECK( accepts(r, {'a', 'b', 'c'}) );
+        CHECK( accepts(r, {'a', 'b', 'a', 'b'}) );
+        CHECK( accepts(r, {'c', 'a', 'b', 'a', 'b', 'c'}) );
     }
 
 }
@@ -182,38 +182,38 @@ TEMPLATE_TEST_CASE("Additional regex combinators accept/reject as expected", "[t
     SECTION("Word") {
         auto r = Regexes::word({'t', 'o', 'm', 'a', 't', 'o'});
 
-        REQUIRE( !accepts(r, {}) );
-        REQUIRE( accepts(r, {'t', 'o', 'm', 'a', 't', 'o'}) );
-        REQUIRE( !accepts(r, {'o', 'm', 'a', 't', 'o'}) );
-        REQUIRE( !accepts(r, {'t', 'o', 'm', 'a', 't'}) );
-        REQUIRE( !accepts(r, {'t', 'o', 'm', 'a', 't', 'o', 'e', 's'}) );
-        REQUIRE( !accepts(r, {'t', 'o', 'm', 'e', 't', 'o'}) );
+        CHECK( !accepts(r, {}) );
+        CHECK( accepts(r, {'t', 'o', 'm', 'a', 't', 'o'}) );
+        CHECK( !accepts(r, {'o', 'm', 'a', 't', 'o'}) );
+        CHECK( !accepts(r, {'t', 'o', 'm', 'a', 't'}) );
+        CHECK( !accepts(r, {'t', 'o', 'm', 'a', 't', 'o', 'e', 's'}) );
+        CHECK( !accepts(r, {'t', 'o', 'm', 'e', 't', 'o'}) );
     }
 
     SECTION("Any (literal)") {
         auto r = Regexes::any_of({'t', 'o', 'm', 'a'});
 
-        REQUIRE( !accepts(r, {}) );
-        REQUIRE( accepts(r, {'t'}) );
-        REQUIRE( accepts(r, {'o'}) );
-        REQUIRE( accepts(r, {'m'}) );
-        REQUIRE( accepts(r, {'a'}) );
-        REQUIRE( !accepts(r, {'t', 'o', 'm', 'a'}) );
-        REQUIRE( !accepts(r, {'t', 'o', 'm', 'a', 't', 'o'}) );
+        CHECK( !accepts(r, {}) );
+        CHECK( accepts(r, {'t'}) );
+        CHECK( accepts(r, {'o'}) );
+        CHECK( accepts(r, {'m'}) );
+        CHECK( accepts(r, {'a'}) );
+        CHECK( !accepts(r, {'t', 'o', 'm', 'a'}) );
+        CHECK( !accepts(r, {'t', 'o', 'm', 'a', 't', 'o'}) );
     }
 
     SECTION("Range") {
         auto r = Regexes::range('2', '4');
 
-        REQUIRE( !accepts(r, {'0'}) );
-        REQUIRE( !accepts(r, {'1'}) );
-        REQUIRE( accepts(r, {'2'}) );
-        REQUIRE( accepts(r, {'3'}) );
-        REQUIRE( accepts(r, {'4'}) );
-        REQUIRE( !accepts(r, {'5'}) );
-        REQUIRE( !accepts(r, {'6'}) );
-        REQUIRE( !accepts(r, {'7'}) );
-        REQUIRE( !accepts(r, {'8'}) );
-        REQUIRE( !accepts(r, {'9'}) );
+        CHECK( !accepts(r, {'0'}) );
+        CHECK( !accepts(r, {'1'}) );
+        CHECK( accepts(r, {'2'}) );
+        CHECK( accepts(r, {'3'}) );
+        CHECK( accepts(r, {'4'}) );
+        CHECK( !accepts(r, {'5'}) );
+        CHECK( !accepts(r, {'6'}) );
+        CHECK( !accepts(r, {'7'}) );
+        CHECK( !accepts(r, {'8'}) );
+        CHECK( !accepts(r, {'9'}) );
     }
 }

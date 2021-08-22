@@ -7,6 +7,7 @@
 #include <iterator>
 #include <concepts>
 
+#include "Stringify.hpp"
 #include "Concepts.hpp"
 
 namespace tfl {
@@ -23,7 +24,7 @@ namespace tfl {
 
         virtual R empty() const = 0;
         virtual R epsilon() const = 0;
-        virtual R literal(std::function<bool(T)> const& predicate) const = 0;
+        virtual R literal(T const& literal) const = 0;
         virtual R disjunction(Regex<T> const& left, Regex<T> const& right) const = 0;
         virtual R sequence(Regex<T> const& left, Regex<T> const& right) const = 0;
         virtual R kleene_star(Regex<T> const& regex) const = 0;
@@ -35,7 +36,7 @@ namespace tfl {
         class IsMatcher: public RegexMatcher<T, bool> {
             virtual bool empty() const { return false; }
             virtual bool epsilon() const { return false; }
-            virtual bool literal(std::function<bool(T)> const& predicate) const { return false; }
+            virtual bool literal(T const& literal) const { return false; }
             virtual bool disjunction(Regex<T> const& left, Regex<T> const& right) const { return false; }
             virtual bool sequence(Regex<T> const& left, Regex<T> const& right) const { return false; }
             virtual bool kleene_star(Regex<T> const& regex) const { return false; }
@@ -62,8 +63,8 @@ namespace tfl {
         };
 
         struct Literal {
-            std::function<bool(T)> const _pred;
-            template<typename R> inline R match(RegexMatcher<T, R> const& matcher) const { return matcher.literal(_pred); }
+            T const _lit;
+            template<typename R> inline R match(RegexMatcher<T, R> const& matcher) const { return matcher.literal(_lit); }
         };
 
         struct Disjunction {
@@ -108,12 +109,7 @@ namespace tfl {
         }
 
         static Regex literal(T const& lit) {
-            return Regex{Literal([lit](T const& elem){ return elem == lit; })};
-        }
-
-        template<std::predicate<T> F>
-        static Regex literal(F&& predicate) {
-            return Regex{Literal(std::forward<F>(predicate))};
+            return Regex{Literal(lit)};
         }
 
         Regex operator| (Regex const& that) const {
@@ -160,9 +156,11 @@ namespace tfl {
         }
     };
 
-    template<typename T>
+    template<typename T, typename Stringify = Stringify<T>>
     struct RegexesPrinter {
     private:
+        static constexpr Stringify stringify{};
+
         enum class Precedence {
             ATOM = 1,
             SEQ = 2,
@@ -192,7 +190,7 @@ namespace tfl {
         public:
             virtual Result empty() const { return {"∅", Precedence::ATOM}; }
             virtual Result epsilon() const { return {"ε", Precedence::ATOM}; }
-            virtual Result literal(std::function<bool(T)> const& predicate) const { return {"a", Precedence::ATOM}; }
+            virtual Result literal(T const& lit) const { return {stringify(lit), Precedence::ATOM}; }
             virtual Result disjunction(Regex<T> const& left, Regex<T> const& right) const { 
                 return binop_leftassoc(" | ", rec(left), rec(right), Precedence::DISJ);
             }
@@ -220,7 +218,7 @@ namespace tfl {
         public:
             Size empty() const { return 1; }
             Size epsilon() const { return 1; }
-            Size literal(std::function<bool(T)> const& predicate) const { return 1; }
+            Size literal(T const&) const { return 1; }
             Size disjunction(Regex<T> const& left, Regex<T> const& right) const { return std::max(rec(left), rec(left)) + 1; }
             Size sequence(Regex<T> const& left, Regex<T> const& right) const { return std::max(rec(left), rec(left)) + 1; }
             Size kleene_star(Regex<T> const& regex) const { return rec(regex) + 1; }
@@ -231,7 +229,7 @@ namespace tfl {
         public:
             Size empty() const { return 1; }
             Size epsilon() const { return 1; }
-            Size literal(std::function<bool(T)> const& predicate) const { return 1; }
+            Size literal(T const&) const { return 1; }
             Size disjunction(Regex<T> const& left, Regex<T> const& right) const { return rec(left) + rec(right) + 1; }
             Size sequence(Regex<T> const& left, Regex<T> const& right) const { return rec(left) + rec(right) + 1; }
             Size kleene_star(Regex<T> const& regex) const { return rec(regex) + 1; }
@@ -250,18 +248,20 @@ namespace tfl {
         }
     };
 
-    template<class T>
+    template<class T, class Eq = std::equal_to<T>>
     struct RegexesDerivation {
     private:
+        static constexpr Eq eq{};
+
         static class: public RegexMatcher<T, bool> {
             using RegexMatcher<T, bool>::rec;
         public:
             bool empty() const { return false; }
             bool epsilon() const { return true; }
-            bool literal(std::function<bool(T)> const& predicate) const { return false; }
+            bool literal(T const&) const { return false; }
             bool disjunction(Regex<T> const& left, Regex<T> const& right) const { return rec(left) || rec(right); }
             bool sequence(Regex<T> const& left, Regex<T> const& right) const { return rec(left) && rec(right); }
-            bool kleene_star(Regex<T> const& regex) const { return true; }  
+            bool kleene_star(Regex<T> const&) const { return true; }  
         } constexpr nullability_checker{};
 
         class RegexDeriver: public RegexMatcher<T, Regex<T>> {
@@ -278,8 +278,8 @@ namespace tfl {
                 return Regex<T>::empty();
             }
             
-            Regex<T> literal(std::function<bool(T)> const& predicate) const {
-                return predicate(_x) ? Regex<T>::epsilon() : Regex<T>::empty();
+            Regex<T> literal(T const& literal) const {
+                return eq(literal, _x) ? Regex<T>::epsilon() : Regex<T>::empty();
             }
             
             Regex<T> disjunction(Regex<T> const& left, Regex<T> const& right) const {
@@ -347,11 +347,6 @@ namespace tfl {
             return Regex<T>::literal(lit);
         }
 
-        template<std::predicate<T> F>
-        static Regex<T> literal(F&& predicate) {
-            return Regex<T>::literal(std::forward<F>(predicate));
-        }
-
         static Regex<T> opt(Regex<T> const& r) {
             return epsilon() | r;
         }
@@ -404,8 +399,18 @@ namespace tfl {
             return any_of<std::initializer_list<C>>(iterable);
         }
 
-        static Regex<T> range(T const& low, T const& high) {
-            return Regex<T>::literal([low, high](auto chr){ return low <= chr && chr <= high; });
+        template<class eq = std::equal_to<T>, class less = std::less<T>>
+        static Regex<T> range(T low, T const& high) {
+            if(less{}(low, high)) {
+                auto c = literal(low); // Variable needed, since c++ doesn't guarantee operands evaluation order
+                return c | range(++low, high); 
+            }
+            else if(eq{}(low, high)) {
+                return literal(low);
+            }
+            else {
+                return empty();
+            }
         }
     };
 }
