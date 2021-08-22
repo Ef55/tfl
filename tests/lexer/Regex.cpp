@@ -12,7 +12,7 @@ static auto to_string = tfl::RegexesPrinter<char>::to_string;
 TEMPLATE_TEST_CASE("Regexes accept/reject as expected", "[template]", tfl::RegexesDerivation<char>) {
     auto accepts = [](Regex r, std::initializer_list<char> ls){ return TestType::accepts(r, ls); };
   
-    SECTION("Empty") {
+    SECTION("∅ (empty)") {
         Regex r = Regex::empty();
 
         CHECK( !accepts(r, {}) );
@@ -21,7 +21,7 @@ TEMPLATE_TEST_CASE("Regexes accept/reject as expected", "[template]", tfl::Regex
         CHECK( !accepts(r, {'a', 'b'}) );
     }
 
-    SECTION("Epsilon") {
+    SECTION("ε (epsilon)") {
         Regex r = Regex::epsilon();
 
         CHECK( accepts(r, {}) );
@@ -30,7 +30,7 @@ TEMPLATE_TEST_CASE("Regexes accept/reject as expected", "[template]", tfl::Regex
         CHECK( !accepts(r, {'a', 'b'}) );
     }
 
-    SECTION("Literal") {
+    SECTION("Literal (literal)") {
 
         SECTION("'a'") {
             Regex a = Regex::literal('a');
@@ -51,7 +51,7 @@ TEMPLATE_TEST_CASE("Regexes accept/reject as expected", "[template]", tfl::Regex
         }
     }
 
-    SECTION("Disjunction") {
+    SECTION("Disjunction (|)") {
         Regex a = Regex::literal('a');
         Regex b = Regex::literal('b');
         Regex e = Regex::epsilon();
@@ -59,19 +59,22 @@ TEMPLATE_TEST_CASE("Regexes accept/reject as expected", "[template]", tfl::Regex
         Regex ab = a | b;
         Regex r = ab | e;
 
-        CHECK( !accepts(ab, {}) );
-        CHECK( accepts(ab, {'a'}) );
-        CHECK( accepts(ab, {'b'}) );
-        CHECK( !accepts(ab, {'a', 'b'}) );
+        SECTION("a | b") {
+            CHECK( !accepts(ab, {}) );
+            CHECK( accepts(ab, {'a'}) );
+            CHECK( accepts(ab, {'b'}) );
+            CHECK( !accepts(ab, {'a', 'b'}) );
+        }
 
-
-        CHECK( accepts(r, {}) );
-        CHECK( accepts(r, {'a'}) );
-        CHECK( accepts(r, {'b'}) );
-        CHECK( !accepts(r, {'a', 'b'}) );
+        SECTION("a | b | ε") {
+            CHECK( accepts(r, {}) );
+            CHECK( accepts(r, {'a'}) );
+            CHECK( accepts(r, {'b'}) );
+            CHECK( !accepts(r, {'a', 'b'}) );
+        }
     }
 
-    SECTION("Sequence") {
+    SECTION("Sequence (&)") {
         Regex a = Regex::literal('a');
         Regex b = Regex::literal('b');
         Regex e = Regex::epsilon();
@@ -80,26 +83,32 @@ TEMPLATE_TEST_CASE("Regexes accept/reject as expected", "[template]", tfl::Regex
         Regex abe = ab & e;
         Regex aba = ab & a;
 
-        CHECK( !accepts(ab, {}) );
-        CHECK( !accepts(ab, {'a'}) );
-        CHECK( !accepts(ab, {'b'}) );
-        CHECK( accepts(ab, {'a', 'b'}) );
-        CHECK( !accepts(ab, {'a', 'b', 'a'}) );
+        SECTION("ab") {
+            CHECK( !accepts(ab, {}) );
+            CHECK( !accepts(ab, {'a'}) );
+            CHECK( !accepts(ab, {'b'}) );
+            CHECK( accepts(ab, {'a', 'b'}) );
+            CHECK( !accepts(ab, {'a', 'b', 'a'}) );
+        }
 
-        CHECK( !accepts(abe, {}) );
-        CHECK( !accepts(abe, {'a'}) );
-        CHECK( !accepts(abe, {'b'}) );
-        CHECK( accepts(abe, {'a', 'b'}) );
-        CHECK( !accepts(abe, {'a', 'b', 'a'}) );
+        SECTION("abε") {
+            CHECK( !accepts(abe, {}) );
+            CHECK( !accepts(abe, {'a'}) );
+            CHECK( !accepts(abe, {'b'}) );
+            CHECK( accepts(abe, {'a', 'b'}) );
+            CHECK( !accepts(abe, {'a', 'b', 'a'}) );
+        }
 
-        CHECK( !accepts(aba, {}) );
-        CHECK( !accepts(aba, {'a'}) );
-        CHECK( !accepts(aba, {'b'}) );
-        CHECK( !accepts(aba, {'a', 'b'}) );
-        CHECK( accepts(aba, {'a', 'b', 'a'}) );
+        SECTION("aba") {
+            CHECK( !accepts(aba, {}) );
+            CHECK( !accepts(aba, {'a'}) );
+            CHECK( !accepts(aba, {'b'}) );
+            CHECK( !accepts(aba, {'a', 'b'}) );
+            CHECK( accepts(aba, {'a', 'b', 'a'}) );
+        }
     }
 
-    SECTION("Closure") {
+    SECTION("Closure (*)") {
         Regex a = Regex::literal('a');
         Regex b = Regex::literal('b');
         Regex c = Regex::literal('c');
@@ -114,6 +123,26 @@ TEMPLATE_TEST_CASE("Regexes accept/reject as expected", "[template]", tfl::Regex
         CHECK( accepts(r, {'a', 'b', 'c'}) );
         CHECK( accepts(r, {'a', 'b', 'a', 'b'}) );
         CHECK( accepts(r, {'c', 'a', 'b', 'a', 'b', 'c'}) );
+    }
+
+    SECTION("Complement (-)") {
+        Regex a = Regex::literal('a');
+
+        SECTION("¬a") {
+            Regex na = -a;
+            CHECK( accepts(na, {}) );
+            CHECK( !accepts(na, {'a'}) );
+            CHECK( accepts(na, {'b'}) );
+            CHECK( accepts(na, {'a', 'a'}) );
+        }
+
+        SECTION("¬¬a") {
+            Regex nna = -(-a);
+            CHECK( !accepts(a, {}) );
+            CHECK( accepts(a, {'a'}) );
+            CHECK( !accepts(a, {'b'}) );
+            CHECK( !accepts(a, {'a', 'b'}) );
+        }
     }
 
 }
@@ -179,7 +208,15 @@ TEMPLATE_TEST_CASE("Compacted regexes accept/reject as expected", "[template]", 
 TEMPLATE_TEST_CASE("Additional regex combinators accept/reject as expected", "[template]", tfl::RegexesDerivation<char>) {
     auto accepts = [](Regex r, std::initializer_list<char> ls){ return TestType::accepts(r, ls); };
 
-    SECTION("Word") {
+    SECTION("Optional (opt)") {
+        auto r = Regexes::opt(Regexes::literal('a'));
+
+        CHECK( accepts(r, {}) );
+        CHECK( accepts(r, {'a'}) );
+        CHECK( !accepts(r, {'b'}) );
+    } 
+
+    SECTION("Word (word)") {
         auto r = Regexes::word({'t', 'o', 'm', 'a', 't', 'o'});
 
         CHECK( !accepts(r, {}) );
@@ -190,7 +227,18 @@ TEMPLATE_TEST_CASE("Additional regex combinators accept/reject as expected", "[t
         CHECK( !accepts(r, {'t', 'o', 'm', 'e', 't', 'o'}) );
     }
 
-    SECTION("Any (literal)") {
+    SECTION("Any (any)") {
+        auto r = Regexes::any();
+
+
+        CHECK( accepts(r, {}) );
+        CHECK( accepts(r, {'a'}) );
+        CHECK( accepts(r, {'b'}) );
+        CHECK( accepts(r, {'a', 'a', 'a'}) );
+        CHECK( accepts(r, {'t', 'o', 'm', 'a', 't', 'o'}) );
+    }
+
+    SECTION("Any of (any_of)") {
         auto r = Regexes::any_of({'t', 'o', 'm', 'a'});
 
         CHECK( !accepts(r, {}) );

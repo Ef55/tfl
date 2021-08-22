@@ -25,9 +25,13 @@ TEST_CASE("Regexes have expected size/depth") {
     auto c = Regex::literal('c');
     auto d = Regex::literal('d');
 
-    test_size_depth(*((a & b) | c | d), "(ab|c|d)*", 8, 5);
-    test_size_depth(*(a & b & c & d), "(abcd)*", 8, 5);
-    test_size_depth(*( (a & b) & (c & d) ), "((ab)(cd))*", 8, 4);
+    test_size_depth(((a & b) | c | d), "(ab | c | d)", 7, 4);
+    test_size_depth(-*-a, "¬*¬a", 4, 4);
+    test_size_depth(*((a & b) | -c | d), "*(ab | ¬c | d)", 9, 5);
+    test_size_depth(*(a & b & -c & d), "*(ab¬cd)", 9, 5);
+    test_size_depth(*(-a & b & c & d), "*(¬abcd)", 9, 6);
+    test_size_depth(*( (a & b) & (c & d) ), "*((ab)(cd))", 8, 4);
+    test_size_depth(*( (a & b) & (-c & d) ), "*((ab)(¬cd))", 9, 5);
 
 }
 
@@ -48,4 +52,5 @@ TEST_CASE("Compacted regexes have expected size/depth") {
     test_singleton(*e, "*ε");
     test_singleton(*f, "*∅");
     test_size_depth(**a, "**a", 2, 2);
+    test_singleton(-(-a), "¬¬a");
 }

@@ -22,7 +22,8 @@ TEST_CASE("Regexes are printed as expected") {
         CHECK( to_string(e) == "ε" );
         CHECK( to_string(a & b) == "ab" );
         CHECK( to_string(a | b) == "a | b" );
-        CHECK( to_string(*c) == "*c" );
+        CHECK( to_string(*b) == "*b" );
+        CHECK( to_string(-c) == "¬c" );
     }
 
     SECTION("Sequence associativity") {
@@ -44,5 +45,17 @@ TEST_CASE("Regexes are printed as expected") {
         CHECK( to_string((*a & b) | c) == "*ab | c" );
         CHECK( to_string(*(a & b) | c) == "*(ab) | c" );
         CHECK( to_string(*((a & b) | c)) == "*(ab | c)" );
+    }
+
+    SECTION("Complement/binary combinations") {
+        CHECK( to_string((-a & b) | c) == "¬ab | c" );
+        CHECK( to_string(-(a & b) | c) == "¬(ab) | c" );
+        CHECK( to_string(-((a & b) | c)) == "¬(ab | c)" );
+    }
+
+    SECTION("Complement/closure combinations") {
+        CHECK( to_string(-*a) == "¬*a" );
+        CHECK( to_string(*-a) == "*¬a" );
+        CHECK( to_string(*-*a) == "*¬*a" );
     }
 }

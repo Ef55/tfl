@@ -28,6 +28,7 @@ namespace tfl {
         virtual R disjunction(Regex<T> const& left, Regex<T> const& right) const = 0;
         virtual R sequence(Regex<T> const& left, Regex<T> const& right) const = 0;
         virtual R kleene_star(Regex<T> const& regex) const = 0;
+        virtual R complement(Regex<T> const& regex) const = 0;
     };
 
     template<typename T>
@@ -40,19 +41,24 @@ namespace tfl {
             virtual bool disjunction(Regex<T> const& left, Regex<T> const& right) const { return false; }
             virtual bool sequence(Regex<T> const& left, Regex<T> const& right) const { return false; }
             virtual bool kleene_star(Regex<T> const& regex) const { return false; }
+            virtual bool complement(Regex<T> const& regex) const { return false; }
         };
 
-        static class IsEmpty: public IsMatcher {
+        static class: public IsMatcher {
             bool empty() const { return true; }
         } constexpr is_empty{};
 
-        static class IsEpsilon: public IsMatcher {
+        static class: public IsMatcher {
             bool epsilon() const { return true; }
         } constexpr is_epsilon{};
 
-        static class IsClosure: public IsMatcher {
+        static class: public IsMatcher {
             bool kleene_star(Regex const&) const { return true; }
         } constexpr is_closure{};
+
+        static class: public IsMatcher {
+            bool complement(Regex const&) const { return true; }
+        } constexpr is_complement{};
 
         struct Empty {
             template<typename R> inline R match(RegexMatcher<T, R> const& matcher) const { return matcher.empty(); }
@@ -84,10 +90,15 @@ namespace tfl {
             template<typename R> inline R match(RegexMatcher<T, R> const& matcher) const { return matcher.kleene_star(_underlying); }
         };
 
-        using Variant = std::variant<Empty, Epsilon, Literal, Disjunction, Sequence, KleeneStar>;
+        struct Complement {
+            Regex const _underlying;
+            template<typename R> inline R match(RegexMatcher<T, R> const& matcher) const { return matcher.complement(_underlying); }
+        };
+
+        using Variant = std::variant<Empty, Epsilon, Literal, Disjunction, Sequence, KleeneStar, Complement>;
         std::shared_ptr<Variant> _regex;
 
-        template<typename R> requires is_among_v<R, Empty, Epsilon, Literal, Disjunction, Sequence, KleeneStar>
+        template<typename R> requires is_among_v<R, Empty, Epsilon, Literal, Disjunction, Sequence, KleeneStar, Complement>
         Regex(R&& regex): _regex(std::make_shared<Variant>(std::forward<R>(regex))) {}
 
     public:
@@ -112,7 +123,7 @@ namespace tfl {
             return Regex{Literal(lit)};
         }
 
-        Regex operator| (Regex const& that) const {
+        Regex operator|(Regex const& that) const {
             if(this->match(is_empty)) {
                 return that;
             }
@@ -124,7 +135,7 @@ namespace tfl {
             }
         }
 
-        Regex operator& (Regex const& that) const {
+        Regex operator&(Regex const& that) const {
             if(this->match(is_empty) || that.match(is_empty)) {
                 return empty();
             }
@@ -139,7 +150,7 @@ namespace tfl {
             }
         }
 
-        Regex operator* () const {
+        Regex operator*() const {
             if(this->match(is_closure)) {
                 return *this;
             }
@@ -151,9 +162,19 @@ namespace tfl {
             }
         }
 
-        Regex operator+ () const {
+        Regex operator-() const {
+            if(this->match(is_complement)) {
+                return std::get<Complement>(*_regex)._underlying;
+            }
+            else {
+                return Regex(Complement(*this));
+            }
+        }
+
+        Regex operator+() const {
             return *this & Regex(KleeneStar(*this));
         }
+
     };
 
     template<typename T, typename Stringify = Stringify<T>>
@@ -200,6 +221,9 @@ namespace tfl {
             virtual Result kleene_star(Regex<T> const& regex) const {
                 return unop_rightassoc("*", rec(regex), Precedence::ATOM);
             }
+            virtual Result complement(Regex<T> const& regex) const {
+                return unop_rightassoc("¬", rec(regex), Precedence::ATOM);
+            }
         } constexpr printer{};
     public:
         static std::string to_string(Regex<T> const& regex) {
@@ -219,9 +243,10 @@ namespace tfl {
             Size empty() const { return 1; }
             Size epsilon() const { return 1; }
             Size literal(T const&) const { return 1; }
-            Size disjunction(Regex<T> const& left, Regex<T> const& right) const { return std::max(rec(left), rec(left)) + 1; }
-            Size sequence(Regex<T> const& left, Regex<T> const& right) const { return std::max(rec(left), rec(left)) + 1; }
+            Size disjunction(Regex<T> const& left, Regex<T> const& right) const { return std::max(rec(left), rec(right)) + 1; }
+            Size sequence(Regex<T> const& left, Regex<T> const& right) const { return std::max(rec(left), rec(right)) + 1; }
             Size kleene_star(Regex<T> const& regex) const { return rec(regex) + 1; }
+            Size complement(Regex<T> const& regex) const { return rec(regex) + 1; }
         } constexpr probe{};
 
         static class: public RegexMatcher<T, Size> {
@@ -233,6 +258,7 @@ namespace tfl {
             Size disjunction(Regex<T> const& left, Regex<T> const& right) const { return rec(left) + rec(right) + 1; }
             Size sequence(Regex<T> const& left, Regex<T> const& right) const { return rec(left) + rec(right) + 1; }
             Size kleene_star(Regex<T> const& regex) const { return rec(regex) + 1; }
+            Size complement(Regex<T> const& regex) const { return rec(regex) + 1; }
         } constexpr measurer{};
 
     protected:
@@ -262,6 +288,7 @@ namespace tfl {
             bool disjunction(Regex<T> const& left, Regex<T> const& right) const { return rec(left) || rec(right); }
             bool sequence(Regex<T> const& left, Regex<T> const& right) const { return rec(left) && rec(right); }
             bool kleene_star(Regex<T> const&) const { return true; }  
+            bool complement(Regex<T> const& regex) const { return !rec(regex); }  
         } constexpr nullability_checker{};
 
         class RegexDeriver: public RegexMatcher<T, Regex<T>> {
@@ -293,6 +320,10 @@ namespace tfl {
             
             Regex<T> kleene_star(Regex<T> const& regex) const {
                 return rec(regex) & *regex;
+            } 
+
+            Regex<T> complement(Regex<T> const& regex) const {
+                return -rec(regex);
             }  
         };
 
@@ -362,16 +393,11 @@ namespace tfl {
         }
 
         static Regex<T> word(std::initializer_list<T> const& iterable) {
-            Regex<T> result = Regex<T>::epsilon();
-            for(T const& lit : iterable) {
-                result = result & Regex<T>::literal(lit);
-            }
-
-            return result;
+            return word<std::initializer_list<T>>(iterable);
         }
 
-        static Regex<T> any_literal() {
-            return Regex<T>::literal([](auto){ return true; });
+        static Regex<T> any() {
+            return -empty();
         }
 
         template<iterable<T> C>
