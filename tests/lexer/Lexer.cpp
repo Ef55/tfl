@@ -90,7 +90,7 @@ TEST_CASE("Simple usecase") {
         {Regexes::literal(')'), [](auto w){ return Word(SpecialSymbol::CL_PAR); }},
         {*space, [](auto w){ return Word(SpecialSymbol::SEP); }},
         {Regexes::literal('+') | Regexes::literal('-') | Regexes::literal('/') | Regexes::literal('*'), [](auto w){ return Word(SpecialSymbol::OP); }},
-        {Regexes::literal('/') & Regexes::literal('/') & *(digit | alpha | Regexes::literal(' ')) & eol, [](auto w){ return Word(SpecialSymbol::COMMENT); }},
+        {Regexes::literal('/') - Regexes::literal('/') - *(digit | alpha | Regexes::literal(' ')) - eol, [](auto w){ return Word(SpecialSymbol::COMMENT); }},
     });
 
     auto integer_lexer = tfl::Lexer<char, int, std::string>::make({

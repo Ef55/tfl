@@ -74,14 +74,14 @@ TEMPLATE_TEST_CASE("Regexes accept/reject as expected", "[template]", tfl::Regex
         }
     }
 
-    SECTION("Sequence (&)") {
+    SECTION("Sequence (-)") {
         Regex a = Regex::literal('a');
         Regex b = Regex::literal('b');
         Regex e = Regex::epsilon();
 
-        Regex ab = a & b;
-        Regex abe = ab & e;
-        Regex aba = ab & a;
+        Regex ab = a - b;
+        Regex abe = ab - e;
+        Regex aba = ab - a;
 
         SECTION("ab") {
             CHECK( !accepts(ab, {}) );
@@ -113,7 +113,7 @@ TEMPLATE_TEST_CASE("Regexes accept/reject as expected", "[template]", tfl::Regex
         Regex b = Regex::literal('b');
         Regex c = Regex::literal('c');
 
-        Regex r = *((a & b) | c);
+        Regex r = *((a - b) | c);
 
         CHECK( accepts(r, {}) );
         CHECK( !accepts(r, {'a'}) );
@@ -125,11 +125,11 @@ TEMPLATE_TEST_CASE("Regexes accept/reject as expected", "[template]", tfl::Regex
         CHECK( accepts(r, {'c', 'a', 'b', 'a', 'b', 'c'}) );
     }
 
-    SECTION("Complement (-)") {
+    SECTION("Complement (~)") {
         Regex a = Regex::literal('a');
 
         SECTION("¬a") {
-            Regex na = -a;
+            Regex na = ~a;
             CHECK( accepts(na, {}) );
             CHECK( !accepts(na, {'a'}) );
             CHECK( accepts(na, {'b'}) );
@@ -137,7 +137,7 @@ TEMPLATE_TEST_CASE("Regexes accept/reject as expected", "[template]", tfl::Regex
         }
 
         SECTION("¬¬a") {
-            Regex nna = -(-a);
+            Regex nna = ~~a;
             CHECK( !accepts(a, {}) );
             CHECK( accepts(a, {'a'}) );
             CHECK( !accepts(a, {'b'}) );
@@ -180,10 +180,10 @@ TEMPLATE_TEST_CASE("Compacted regexes accept/reject as expected", "[template]", 
 
         test(a | f, "a | ∅", a);
         test(f | a, "∅ | a", a);
-        test(a & f, "a∅", f);
-        test(f & a, "∅a", f);
-        test(a & e, "aε", a);
-        test(e & a, "εa", a);
+        test(a - f, "a∅", f);
+        test(f - a, "∅a", f);
+        test(a - e, "aε", a);
+        test(e - a, "εa", a);
     }
 
     SECTION("Closure"){

@@ -20,15 +20,15 @@ TEST_CASE("Regexes are printed as expected") {
         CHECK( to_string(c) == "c" );
         CHECK( to_string(f) == "∅" );
         CHECK( to_string(e) == "ε" );
-        CHECK( to_string(a & b) == "ab" );
+        CHECK( to_string(a - b) == "ab" );
         CHECK( to_string(a | b) == "a | b" );
         CHECK( to_string(*b) == "*b" );
-        CHECK( to_string(-c) == "¬c" );
+        CHECK( to_string(~c) == "¬c" );
     }
 
     SECTION("Sequence associativity") {
-        CHECK( to_string(a & b & c) == "abc" );
-        CHECK( to_string(a & (b & c)) == "a(bc)" );
+        CHECK( to_string(a - b - c) == "abc" );
+        CHECK( to_string(a - (b - c)) == "a(bc)" );
     }
 
     SECTION("Disjunction associativity") {
@@ -37,25 +37,25 @@ TEST_CASE("Regexes are printed as expected") {
     }
 
     SECTION("Sequence/disjunction combinations") {
-        CHECK( to_string((a & b) | (c & a)) == "ab | ca" );
-        CHECK( to_string(a & (b | c) & a) == "a(b | c)a" );
+        CHECK( to_string((a - b) | (c - a)) == "ab | ca" );
+        CHECK( to_string(a - (b | c) - a) == "a(b | c)a" );
     }
 
     SECTION("Closure/binary combinations") {
-        CHECK( to_string((*a & b) | c) == "*ab | c" );
-        CHECK( to_string(*(a & b) | c) == "*(ab) | c" );
-        CHECK( to_string(*((a & b) | c)) == "*(ab | c)" );
+        CHECK( to_string((*a - b) | c) == "*ab | c" );
+        CHECK( to_string(*(a - b) | c) == "*(ab) | c" );
+        CHECK( to_string(*((a - b) | c)) == "*(ab | c)" );
     }
 
     SECTION("Complement/binary combinations") {
-        CHECK( to_string((-a & b) | c) == "¬ab | c" );
-        CHECK( to_string(-(a & b) | c) == "¬(ab) | c" );
-        CHECK( to_string(-((a & b) | c)) == "¬(ab | c)" );
+        CHECK( to_string((~a - b) | c) == "¬ab | c" );
+        CHECK( to_string(~(a - b) | c) == "¬(ab) | c" );
+        CHECK( to_string(~((a - b) | c)) == "¬(ab | c)" );
     }
 
     SECTION("Complement/closure combinations") {
-        CHECK( to_string(-*a) == "¬*a" );
-        CHECK( to_string(*-a) == "*¬a" );
-        CHECK( to_string(*-*a) == "*¬*a" );
+        CHECK( to_string(~*a) == "¬*a" );
+        CHECK( to_string(*~a) == "*¬a" );
+        CHECK( to_string(*~*a) == "*¬*a" );
     }
 }

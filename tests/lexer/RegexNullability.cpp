@@ -20,7 +20,7 @@ TEST_CASE("Combined regexes have expected nullability") {
         CHECK( nullable(r) );
 
         THEN("Their sequence is nullable") {
-            CHECK( nullable(l & r) );
+            CHECK( nullable(l - r) );
         }
         THEN("Their disjunction is nullable") {
             CHECK( nullable(l | r) );
@@ -34,8 +34,8 @@ TEST_CASE("Combined regexes have expected nullability") {
         CHECK( !nullable(r) );
 
         THEN("Their sequences are non-nullable") {
-            CHECK( !nullable(l & r) );
-            CHECK( !nullable(r & l) );
+            CHECK( !nullable(l - r) );
+            CHECK( !nullable(r - l) );
         }
         THEN("Their disjunctions are nullable") {
             CHECK( nullable(l | r) );
@@ -50,7 +50,7 @@ TEST_CASE("Combined regexes have expected nullability") {
         CHECK( !nullable(r) );
 
         THEN("Their sequence is non-nullable") {
-            CHECK( !nullable(l & r) );
+            CHECK( !nullable(l - r) );
         }
         THEN("Their disjunction is non-nullable") {
             CHECK( !nullable(l | r) );
@@ -84,7 +84,7 @@ TEST_CASE("Complemented regexes have expected nullability") {
         CHECK( nullable(r) );
 
         THEN("Its complement is non-nullable") {
-            CHECK( !nullable(-r) );
+            CHECK( !nullable(~r) );
         }
     }
 
@@ -93,7 +93,7 @@ TEST_CASE("Complemented regexes have expected nullability") {
         CHECK( !nullable(r) );
 
         THEN("Its complement is nullable") {
-            CHECK( nullable(-r) );
+            CHECK( nullable(~r) );
         }
     }
 }

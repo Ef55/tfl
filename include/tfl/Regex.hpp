@@ -135,7 +135,7 @@ namespace tfl {
             }
         }
 
-        Regex operator&(Regex const& that) const {
+        Regex operator-(Regex const& that) const {
             if(this->match(is_empty) || that.match(is_empty)) {
                 return empty();
             }
@@ -162,7 +162,7 @@ namespace tfl {
             }
         }
 
-        Regex operator-() const {
+        Regex operator~() const {
             if(this->match(is_complement)) {
                 return std::get<Complement>(*_regex)._underlying;
             }
@@ -172,7 +172,7 @@ namespace tfl {
         }
 
         Regex operator+() const {
-            return *this & Regex(KleeneStar(*this));
+            return *this - Regex(KleeneStar(*this));
         }
 
     };
@@ -314,16 +314,16 @@ namespace tfl {
             }
             
             Regex<T> sequence(Regex<T> const& left, Regex<T> const& right) const {
-                auto d = rec(left) & right;
+                auto d = rec(left) - right;
                 return nullable(left) ? d | rec(right) : d;
             }
             
             Regex<T> kleene_star(Regex<T> const& regex) const {
-                return rec(regex) & *regex;
+                return rec(regex) - *regex;
             } 
 
             Regex<T> complement(Regex<T> const& regex) const {
-                return -rec(regex);
+                return ~rec(regex);
             }  
         };
 
@@ -386,7 +386,7 @@ namespace tfl {
         static Regex<T> word(C const& iterable) {
             Regex<T> result = Regex<T>::epsilon();
             for(T const& lit : iterable) {
-                result = result & Regex<T>::literal(lit);
+                result = result - Regex<T>::literal(lit);
             }
 
             return result;
@@ -397,7 +397,7 @@ namespace tfl {
         }
 
         static Regex<T> any() {
-            return -empty();
+            return ~empty();
         }
 
         template<iterable<T> C>
