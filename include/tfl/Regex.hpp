@@ -24,6 +24,7 @@ namespace tfl {
 
         virtual R empty() const = 0;
         virtual R epsilon() const = 0;
+        virtual R alphabet() const = 0;
         virtual R literal(T const& literal) const = 0;
         virtual R disjunction(Regex<T> const& left, Regex<T> const& right) const = 0;
         virtual R sequence(Regex<T> const& left, Regex<T> const& right) const = 0;
@@ -38,6 +39,7 @@ namespace tfl {
         class IsMatcher: public RegexMatcher<T, bool> {
             virtual bool empty() const { return false; }
             virtual bool epsilon() const { return false; }
+            virtual bool alphabet() const { return true; }
             virtual bool literal(T const& literal) const { return false; }
             virtual bool disjunction(Regex<T> const& left, Regex<T> const& right) const { return false; }
             virtual bool sequence(Regex<T> const& left, Regex<T> const& right) const { return false; }
@@ -68,6 +70,10 @@ namespace tfl {
 
         struct Epsilon {
             template<typename R> inline R match(RegexMatcher<T, R> const& matcher) const { return matcher.epsilon(); }
+        };
+
+        struct Alphabet {
+            template<typename R> inline R match(RegexMatcher<T, R> const& matcher) const { return matcher.alphabet(); }
         };
 
         struct Literal {
@@ -103,10 +109,10 @@ namespace tfl {
             template<typename R> inline R match(RegexMatcher<T, R> const& matcher) const { return matcher.conjunction(_left, _right); }
         };
 
-        using Variant = std::variant<Empty, Epsilon, Literal, Disjunction, Sequence, KleeneStar, Complement, Conjunction>;
+        using Variant = std::variant<Empty, Epsilon, Alphabet, Literal, Disjunction, Sequence, KleeneStar, Complement, Conjunction>;
         std::shared_ptr<Variant> _regex;
 
-        template<typename R> requires is_among_v<R, Empty, Epsilon, Literal, Disjunction, Sequence, KleeneStar, Complement, Conjunction>
+        template<typename R> requires is_among_v<R, Empty, Epsilon, Alphabet, Literal, Disjunction, Sequence, KleeneStar, Complement, Conjunction>
         Regex(R&& regex): _regex(std::make_shared<Variant>(std::forward<R>(regex))) {}
 
     public:
@@ -125,6 +131,11 @@ namespace tfl {
         static Regex epsilon() {
             static Regex epsilon{Epsilon{}};
             return epsilon;
+        }
+
+        static Regex alphabet() {
+            static Regex alpha{Alphabet{}};
+            return alpha;
         }
 
         static Regex literal(T const& lit) {
@@ -228,6 +239,7 @@ namespace tfl {
         public:
             virtual Result empty() const { return {"∅", Precedence::ATOM}; }
             virtual Result epsilon() const { return {"ε", Precedence::ATOM}; }
+            virtual Result alphabet() const { return {"Σ", Precedence::ATOM}; }
             virtual Result literal(T const& lit) const { return {stringify(lit), Precedence::ATOM}; }
             virtual Result disjunction(Regex<T> const& left, Regex<T> const& right) const { 
                 return binop_leftassoc(" | ", rec(left), rec(right), Precedence::DISJ);
@@ -262,6 +274,7 @@ namespace tfl {
         public:
             Size empty() const { return 1; }
             Size epsilon() const { return 1; }
+            Size alphabet() const { return 1; }
             Size literal(T const&) const { return 1; }
             Size disjunction(Regex<T> const& left, Regex<T> const& right) const { return std::max(rec(left), rec(right)) + 1; }
             Size sequence(Regex<T> const& left, Regex<T> const& right) const { return std::max(rec(left), rec(right)) + 1; }
@@ -275,6 +288,7 @@ namespace tfl {
         public:
             Size empty() const { return 1; }
             Size epsilon() const { return 1; }
+            Size alphabet() const { return 1; }
             Size literal(T const&) const { return 1; }
             Size disjunction(Regex<T> const& left, Regex<T> const& right) const { return rec(left) + rec(right) + 1; }
             Size sequence(Regex<T> const& left, Regex<T> const& right) const { return rec(left) + rec(right) + 1; }
@@ -306,6 +320,7 @@ namespace tfl {
         public:
             bool empty() const { return false; }
             bool epsilon() const { return true; }
+            bool alphabet() const { return false; }
             bool literal(T const&) const { return false; }
             bool disjunction(Regex<T> const& left, Regex<T> const& right) const { return rec(left) || rec(right); }
             bool sequence(Regex<T> const& left, Regex<T> const& right) const { return rec(left) && rec(right); }
@@ -326,6 +341,10 @@ namespace tfl {
 
             Regex<T> epsilon() const {
                 return Regex<T>::empty();
+            }
+
+            Regex<T> alphabet() const {
+                return Regex<T>::epsilon();
             }
             
             Regex<T> literal(T const& literal) const {
@@ -399,6 +418,10 @@ namespace tfl {
 
         static Regex<T> epsilon() {
             return Regex<T>::epsilon();
+        }
+
+        static Regex<T> alphabet() {
+            return Regex<T>::alphabet();
         }
 
         static Regex<T> literal(T const& lit) {

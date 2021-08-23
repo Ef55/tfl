@@ -25,6 +25,14 @@ TEST_CASE("Regexes have expected size/depth") {
     auto c = Regex::literal('c');
     auto d = Regex::literal('d');
 
+    test_size_depth(Regex::empty(), "∅", 1, 1);
+    test_size_depth(Regex::epsilon(), "ε", 1, 1);
+    test_size_depth(Regex::alphabet(), "Σ", 1, 1);
+    test_size_depth(a, "a", 1, 1);
+    test_size_depth(a, "b", 1, 1);
+    test_size_depth(a, "c", 1, 1);
+    test_size_depth(a, "d", 1, 1);
+
     test_size_depth(((a - b) | c | d), "(ab | c | d)", 7, 4);
     test_size_depth(~*~a, "¬*¬a", 4, 4);
     test_size_depth(*((a - b) | ~c | d), "*(ab | ¬c | d)", 9, 5);

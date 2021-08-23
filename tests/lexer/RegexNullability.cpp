@@ -9,6 +9,7 @@ auto nullable = tfl::RegexesDerivation<char>::nullable;
 TEST_CASE("Base regexes have expected nullability") {
     CHECK( !nullable(Regex::empty()) );
     CHECK(  nullable(Regex::epsilon()) );
+    CHECK( !nullable(Regex::alphabet()) );
     CHECK( !nullable(Regex::literal('a')) );
 }
 

@@ -30,6 +30,15 @@ TEMPLATE_TEST_CASE("Regexes accept/reject as expected", "[template]", tfl::Regex
         CHECK( !accepts(r, {'a', 'b'}) );
     }
 
+    SECTION("Σ (alphabet)") {
+        Regex r = Regex::alphabet();
+
+        CHECK( !accepts(r, {}) );
+        CHECK( accepts(r, {'a'}) );
+        CHECK( accepts(r, {'b'}) );
+        CHECK( !accepts(r, {'a', 'b'}) );
+    }
+
     SECTION("Literal (literal)") {
 
         SECTION("'a'") {

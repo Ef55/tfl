@@ -13,13 +13,15 @@ TEST_CASE("Regexes are printed as expected") {
     auto c = Regexes::literal('c');
     auto f = Regexes::empty();
     auto e = Regexes::epsilon();
+    auto s = Regexes::alphabet();
 
     SECTION("Base cases") {
+        CHECK( to_string(f) == "∅" );
+        CHECK( to_string(e) == "ε" );
+        CHECK( to_string(s) == "Σ" );
         CHECK( to_string(a) == "a" );
         CHECK( to_string(b) == "b" );
         CHECK( to_string(c) == "c" );
-        CHECK( to_string(f) == "∅" );
-        CHECK( to_string(e) == "ε" );
         CHECK( to_string(a - b) == "ab" );
         CHECK( to_string(a | b) == "a | b" );
         CHECK( to_string(*b) == "*b" );
