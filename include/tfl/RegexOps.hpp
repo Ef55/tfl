@@ -156,6 +156,7 @@ namespace tfl {
             template<typename T, class Eq> constexpr NullabilityChecker<T, Eq> nullability_checker{};
 
 
+
             template<typename T, class Eq>
             class Deriver final: public Base<T, Regex<T>> {
                 using Base<T, Regex<T>>::rec;
@@ -177,6 +178,8 @@ namespace tfl {
                 Regex<T> complement(Regex<T> const& regex) const { return ~rec(regex); }  
                 Regex<T> conjunction(Regex<T> const& left, Regex<T> const& right) const { return rec(left) & rec(right); }
             };
+
+
 
             template<typename T, class R>
             class AlphabetFinder final: public Base<T, R> {
@@ -206,6 +209,42 @@ namespace tfl {
                 }
             };
             template<typename T, class R> constexpr AlphabetFinder<T, R> alphabet_finder{};
+
+
+
+            template<typename T>
+            class DepthProbe: public Base<T, std::size_t> {
+                using Size = std::size_t;
+                using Base<T, Size>::rec;
+            public:
+                Size empty() const { return 1; }
+                Size epsilon() const { return 1; }
+                Size alphabet() const { return 1; }
+                Size literal(T const&) const { return 1; }
+                Size disjunction(Regex<T> const& left, Regex<T> const& right) const { return std::max(rec(left), rec(right)) + 1; }
+                Size sequence(Regex<T> const& left, Regex<T> const& right) const { return std::max(rec(left), rec(right)) + 1; }
+                Size kleene_star(Regex<T> const& regex) const { return rec(regex) + 1; }
+                Size complement(Regex<T> const& regex) const { return rec(regex) + 1; }
+                Size conjunction(Regex<T> const& left, Regex<T> const& right) const { return std::max(rec(left), rec(right)) + 1; }
+            };
+            template<typename T> constexpr DepthProbe<T> depth_probe{};
+
+            template<typename T>
+            class Measurer: public Base<T, std::size_t> {
+                using Size = std::size_t;
+                using Base<T, Size>::rec;
+            public:
+                Size empty() const { return 1; }
+                Size epsilon() const { return 1; }
+                Size alphabet() const { return 1; }
+                Size literal(T const&) const { return 1; }
+                Size disjunction(Regex<T> const& left, Regex<T> const& right) const { return rec(left) + rec(right) + 1; }
+                Size sequence(Regex<T> const& left, Regex<T> const& right) const { return rec(left) + rec(right) + 1; }
+                Size kleene_star(Regex<T> const& regex) const { return rec(regex) + 1; }
+                Size complement(Regex<T> const& regex) const { return rec(regex) + 1; }
+                Size conjunction(Regex<T> const& left, Regex<T> const& right) const { return rec(left) + rec(right) + 1; }
+            };
+            template<typename T> constexpr Measurer<T> measurer{};
         }
 
         
@@ -269,5 +308,15 @@ namespace tfl {
     template<typename T, class R = std::set<T>>
     R generate_minimal_alphabet(Regex<T> const& regex) {
         return regex.match(matchers::alphabet_finder<T, R>);
+    }
+
+    template<typename T>
+    std::size_t depth(Regex<T> const& regex) {
+        return regex.match(matchers::depth_probe<T>);
+    }
+
+    template<typename T>
+    std::size_t size(Regex<T> const& regex) {
+        return regex.match(matchers::measurer<T>);
     }
 }

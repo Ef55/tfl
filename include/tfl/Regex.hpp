@@ -174,52 +174,7 @@ namespace tfl {
 
     };
 
-    template<typename T>
-    struct RegexesMetrics {
-    public: 
-        using Size = std::size_t;
 
-    private:
-        static class: public matchers::Base<T, Size> {
-            using matchers::Base<T, Size>::rec;
-        public:
-            Size empty() const { return 1; }
-            Size epsilon() const { return 1; }
-            Size alphabet() const { return 1; }
-            Size literal(T const&) const { return 1; }
-            Size disjunction(Regex<T> const& left, Regex<T> const& right) const { return std::max(rec(left), rec(right)) + 1; }
-            Size sequence(Regex<T> const& left, Regex<T> const& right) const { return std::max(rec(left), rec(right)) + 1; }
-            Size kleene_star(Regex<T> const& regex) const { return rec(regex) + 1; }
-            Size complement(Regex<T> const& regex) const { return rec(regex) + 1; }
-            Size conjunction(Regex<T> const& left, Regex<T> const& right) const { return std::max(rec(left), rec(right)) + 1; }
-        } constexpr probe{};
-
-        static class: public matchers::Base<T, Size> {
-            using matchers::Base<T, Size>::rec;
-        public:
-            Size empty() const { return 1; }
-            Size epsilon() const { return 1; }
-            Size alphabet() const { return 1; }
-            Size literal(T const&) const { return 1; }
-            Size disjunction(Regex<T> const& left, Regex<T> const& right) const { return rec(left) + rec(right) + 1; }
-            Size sequence(Regex<T> const& left, Regex<T> const& right) const { return rec(left) + rec(right) + 1; }
-            Size kleene_star(Regex<T> const& regex) const { return rec(regex) + 1; }
-            Size complement(Regex<T> const& regex) const { return rec(regex) + 1; }
-            Size conjunction(Regex<T> const& left, Regex<T> const& right) const { return rec(left) + rec(right) + 1; }
-        } constexpr measurer{};
-
-    protected:
-        virtual ~RegexesMetrics() = default;
-
-    public:
-        static Size depth(Regex<T> const& regex) {
-            return probe(regex);
-        }
-
-        static Size size(Regex<T> const& regex) {
-            return measurer(regex);
-        }
-    };
 
     template<typename T>
     struct Regexes {

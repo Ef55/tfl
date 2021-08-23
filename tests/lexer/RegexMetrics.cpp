@@ -3,10 +3,10 @@
 #include "tfl/Regex.hpp"
 
 using Regex = tfl::Regex<char>;
-using Size = tfl::RegexesMetrics<char>::Size;
+using Size = std::size_t;
 
-static auto size = tfl::RegexesMetrics<char>::size;
-static auto depth = tfl::RegexesMetrics<char>::depth;
+static auto size = tfl::size<char>;
+static auto depth = tfl::depth<char>;
 static auto to_string = tfl::to_string<char>;
 
 static inline void test_size_depth(Regex const& regex, char const* name, Size exp_size, Size exp_depth) {

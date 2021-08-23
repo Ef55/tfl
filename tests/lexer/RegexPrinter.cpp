@@ -3,7 +3,6 @@
 #include "tfl/Regex.hpp"
 
 using Regexes = tfl::Regexes<char>;
-using Size = tfl::RegexesMetrics<char>::Size;
 
 static auto to_string = tfl::to_string<char>;
 
