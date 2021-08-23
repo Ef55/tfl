@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 3.13)
-project("Compiler")
+project("TFL")
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 set(CMAKE_CXX_STANDARD 20)
