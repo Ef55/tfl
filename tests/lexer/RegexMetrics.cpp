@@ -7,13 +7,16 @@ using Size = tfl::RegexesMetrics<char>::Size;
 
 static auto size = tfl::RegexesMetrics<char>::size;
 static auto depth = tfl::RegexesMetrics<char>::depth;
+static auto to_string = tfl::to_string<char>;
 
 static inline void test_size_depth(Regex const& regex, char const* name, Size exp_size, Size exp_depth) {
     GIVEN(name) {
         THEN("Its size is " << exp_size) {
+            INFO("Regex is: " << to_string(regex));
             CHECK( size(regex) == exp_size );
         }
         THEN("Its depth is " << exp_depth) {
+            INFO("Regex is: " << to_string(regex));
             CHECK( depth(regex) == exp_depth );
         }
     }
@@ -50,6 +53,7 @@ TEST_CASE("Compacted regexes have expected size/depth") {
     auto a = Regex::literal('a');
     auto b = Regex::literal('b');
     auto any = Regex::any();
+    auto any2 = *Regex::alphabet();
 
     auto test_singleton = [](auto regex, auto name){ test_size_depth(regex, name, 1, 1); };
     auto test_dualton = [](auto regex, auto name){ test_size_depth(regex, name, 2, 2); };
@@ -65,10 +69,14 @@ TEST_CASE("Compacted regexes have expected size/depth") {
     test_singleton(~~a, "¬¬a");
     test_singleton(a & f, "a & ∅");
     test_singleton(f & a, "∅ & a");
-    test_singleton(any & f, "a & *Σ");
-    test_singleton(f & any, "*Σ & a");
+    test_singleton(a & any, "a & ¬∅");
+    test_singleton(any & a, "¬∅ & a");
+    test_singleton(any2 & f, "a & *Σ");
+    test_singleton(f & any2, "*Σ & a");
 
     test_dualton(**a, "**a");
-    test_dualton(a | any, "a | *Σ");
-    test_dualton(any | a, "*Σ | a");
+    test_dualton(a | any, "a | ¬∅");
+    test_dualton(any | a, "¬∅ | a");
+    test_dualton(a | any2, "a | *Σ");
+    test_dualton(any2 | a, "*Σ | a");
 }

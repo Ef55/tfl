@@ -35,7 +35,7 @@ namespace tfl {
         class IsNone: public Base<T, bool> {
             virtual bool empty() const { return false; }
             virtual bool epsilon() const { return false; }
-            virtual bool alphabet() const { return true; }
+            virtual bool alphabet() const { return false; }
             virtual bool literal(T const& literal) const { return false; }
             virtual bool disjunction(Regex<T> const& left, Regex<T> const& right) const { return false; }
             virtual bool sequence(Regex<T> const& left, Regex<T> const& right) const { return false; }
@@ -78,7 +78,8 @@ namespace tfl {
 
             template<typename T>
             class IsAny final: public IsNone<T> {
-                bool complement(Regex<T> const& regex) const { return regex.match(is_alphabet<T>); }
+                bool kleene_star(Regex<T> const& regex) const { return regex.match(is_alphabet<T>); }
+                bool complement(Regex<T> const& regex) const { return regex.match(is_empty<T>); }
             };
             template<typename T> constexpr IsAny<T> is_any{};
 

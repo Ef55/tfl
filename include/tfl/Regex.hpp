@@ -127,6 +127,9 @@ namespace tfl {
             else if(is_empty(*this) || is_epsilon(*this)) {
                 return epsilon();
             }
+            else if(is_alphabet(*this)) {
+                return any();
+            }
             else {
                 return Regex(KleeneStar(*this));
             }
