@@ -187,6 +187,7 @@ TEMPLATE_TEST_CASE("Compacted regexes accept/reject as expected", "[template]", 
     auto e = Regex::epsilon();
     auto f = Regex::empty();
     auto any = Regex::any();
+    auto any2 = *Regex::alphabet();
     auto a = Regex::literal('a');
     auto b = Regex::literal('b');
 
@@ -234,10 +235,14 @@ TEMPLATE_TEST_CASE("Compacted regexes accept/reject as expected", "[template]", 
             test_fun(inputs, compacted, compacted_name, expected); 
         };
 
-        test(a | any, "a | *Σ", any);
-        test(any | a, "*Σ | a", any);
-        test(a & any, "a & *Σ", a);
-        test(any & a, "*Σ & a", a);
+        test(a | any, "a | ¬∅", any);
+        test(any | a, "¬∅ | a", any);
+        test(a & any, "a & ¬∅", a);
+        test(any & a, "¬∅ & a", a);
+        test(a | any2, "a | *Σ", any);
+        test(any2 | a, "*Σ | a", any);
+        test(a & any2, "a & *Σ", a);
+        test(any2 & a, "*Σ & a", a);
     }
 
     SECTION("Closure"){

@@ -71,8 +71,8 @@ TEST_CASE("Compacted regexes have expected size/depth") {
     test_singleton(f & a, "∅ & a");
     test_singleton(a & any, "a & ¬∅");
     test_singleton(any & a, "¬∅ & a");
-    test_singleton(any2 & f, "a & *Σ");
-    test_singleton(f & any2, "*Σ & a");
+    test_singleton(any2 & a, "*Σ & a");
+    test_singleton(a & any2, "a & *Σ");
 
     test_dualton(**a, "**a");
     test_dualton(a | any, "a | ¬∅");
