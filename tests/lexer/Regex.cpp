@@ -7,10 +7,19 @@
 using Regex = tfl::Regex<char>;
 using Regexes = tfl::Regexes<char>;
 
-static auto to_string = tfl::RegexesPrinter<char>::to_string;
+struct RegexesDerivation {
+    static bool accepts(Regex const& r, std::initializer_list<char> ls) {
+        return tfl::is_nullable(tfl::derive(ls.begin(), ls.end(), r));
+    }
+    static bool accepts_v(Regex const& r, std::vector<char> ls) {
+        return tfl::is_nullable(tfl::derive(ls.cbegin(), ls.cend(), r));
+    }
+};
+
+static auto to_string = tfl::to_string<char>;
  
-TEMPLATE_TEST_CASE("Regexes accept/reject as expected", "[template]", tfl::RegexesDerivation<char>) {
-    auto accepts = [](Regex r, std::initializer_list<char> ls){ return TestType::accepts(r, ls); };
+TEMPLATE_TEST_CASE("Regexes accept/reject as expected", "[template]", RegexesDerivation) {
+    auto accepts = TestType::accepts;
   
     SECTION("∅ (empty)") {
         Regex r = Regex::empty();
@@ -172,8 +181,8 @@ TEMPLATE_TEST_CASE("Regexes accept/reject as expected", "[template]", tfl::Regex
 
 }
 
-TEMPLATE_TEST_CASE("Compacted regexes accept/reject as expected", "[template]", tfl::RegexesDerivation<char>) {
-    auto accepts = [](Regex r, std::vector<char> ls){ return TestType::accepts(r, ls.cbegin(), ls.cend()); };
+TEMPLATE_TEST_CASE("Compacted regexes accept/reject as expected", "[template]", RegexesDerivation) {
+    auto accepts = TestType::accepts_v;
 
     auto e = Regex::epsilon();
     auto f = Regex::empty();
@@ -250,8 +259,8 @@ TEMPLATE_TEST_CASE("Compacted regexes accept/reject as expected", "[template]", 
     }
 }
 
-TEMPLATE_TEST_CASE("Additional regex combinators accept/reject as expected", "[template]", tfl::RegexesDerivation<char>) {
-    auto accepts = [](Regex r, std::initializer_list<char> ls){ return TestType::accepts(r, ls); };
+TEMPLATE_TEST_CASE("Additional regex combinators accept/reject as expected", "[template]", RegexesDerivation) {
+    auto accepts = TestType::accepts;
 
     SECTION("Kleene + (+)") {
         Regex a = Regex::literal('a');

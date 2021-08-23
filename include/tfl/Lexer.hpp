@@ -83,8 +83,8 @@ namespace tfl {
                 I idx = 0;
                 for(; beg != end; ++beg) {
                     ++idx;
-                    r = RegexesDerivation<T>::derive(*beg, r);
-                    if(RegexesDerivation<T>::nullable(r)) {
+                    r = derive(*beg, r);
+                    if(is_nullable(r)) {
                         max = Res(idx);
                     }
                 }

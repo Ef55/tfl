@@ -5,7 +5,7 @@
 using Regexes = tfl::Regexes<char>;
 using Size = tfl::RegexesMetrics<char>::Size;
 
-static auto to_string = tfl::RegexesPrinter<char>::to_string;
+static auto to_string = tfl::to_string<char>;
 
 TEST_CASE("Regexes are printed as expected") {
     auto a = Regexes::literal('a');
