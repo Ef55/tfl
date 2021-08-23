@@ -177,6 +177,7 @@ TEMPLATE_TEST_CASE("Compacted regexes accept/reject as expected", "[template]", 
 
     auto e = Regex::epsilon();
     auto f = Regex::empty();
+    auto any = Regex::any();
     auto a = Regex::literal('a');
     auto b = Regex::literal('b');
 
@@ -192,7 +193,7 @@ TEMPLATE_TEST_CASE("Compacted regexes accept/reject as expected", "[template]", 
     };
 
 
-    SECTION("Sequence/disjunction with empty/epsilon"){
+    SECTION("Sequence/disjunction/conjunction with empty/epsilon"){
         std::vector<std::vector<char>> inputs = {
             {},
             {'a'},
@@ -203,12 +204,31 @@ TEMPLATE_TEST_CASE("Compacted regexes accept/reject as expected", "[template]", 
             test_fun(inputs, compacted, compacted_name, expected); 
         };
 
-        test(a | f, "a | ∅", a);
-        test(f | a, "∅ | a", a);
         test(a - f, "a∅", f);
         test(f - a, "∅a", f);
         test(a - e, "aε", a);
         test(e - a, "εa", a);
+        test(a | f, "a | ∅", a);
+        test(f | a, "∅ | a", a);
+        test(a & f, "a & ∅", f);
+        test(f & a, "∅ & a", f);
+    }
+
+    SECTION("Disjunction/conjunction with any"){
+        std::vector<std::vector<char>> inputs = {
+            {},
+            {'a'},
+            {'b'},
+            {'a', 'b'}
+        };
+        auto test = [&inputs, &test_fun](auto compacted, auto compacted_name, auto expected){ 
+            test_fun(inputs, compacted, compacted_name, expected); 
+        };
+
+        test(a | any, "a | *Σ", any);
+        test(any | a, "*Σ | a", any);
+        test(a & any, "a & *Σ", a);
+        test(any & a, "*Σ & a", a);
     }
 
     SECTION("Closure"){

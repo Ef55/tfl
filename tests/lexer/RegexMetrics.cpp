@@ -49,8 +49,10 @@ TEST_CASE("Compacted regexes have expected size/depth") {
     auto f = Regex::empty();
     auto a = Regex::literal('a');
     auto b = Regex::literal('b');
+    auto any = Regex::any();
 
     auto test_singleton = [](auto regex, auto name){ test_size_depth(regex, name, 1, 1); };
+    auto test_dualton = [](auto regex, auto name){ test_size_depth(regex, name, 2, 2); };
 
     test_singleton(a | f, "a | ∅");
     test_singleton(f | a, "∅ | a");
@@ -60,6 +62,13 @@ TEST_CASE("Compacted regexes have expected size/depth") {
     test_singleton(e - a, "εa");
     test_singleton(*e, "*ε");
     test_singleton(*f, "*∅");
-    test_size_depth(**a, "**a", 2, 2);
     test_singleton(~~a, "¬¬a");
+    test_singleton(a & f, "a & ∅");
+    test_singleton(f & a, "∅ & a");
+    test_singleton(any & f, "a & *Σ");
+    test_singleton(f & any, "*Σ & a");
+
+    test_dualton(**a, "**a");
+    test_dualton(any | f, "a | *Σ");
+    test_dualton(f | any, "*Σ | a");
 }

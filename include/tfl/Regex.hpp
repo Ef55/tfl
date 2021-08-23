@@ -57,12 +57,20 @@ namespace tfl {
         } constexpr is_epsilon{};
 
         static class: public IsMatcher {
+            bool alphabet() const { return true; }
+        } constexpr is_alphabet{};
+
+        static class: public IsMatcher {
             bool kleene_star(Regex const&) const { return true; }
         } constexpr is_closure{};
 
         static class: public IsMatcher {
             bool complement(Regex const&) const { return true; }
         } constexpr is_complement{};
+
+        static class: public IsMatcher {
+            bool complement(Regex const& regex) const { return regex.match(is_alphabet); }
+        } constexpr is_any{};
 
         struct Empty {
             template<typename R> inline R match(RegexMatcher<T, R> const& matcher) const { return matcher.empty(); }
@@ -143,10 +151,10 @@ namespace tfl {
         }
 
         Regex operator|(Regex const& that) const {
-            if(this->match(is_empty)) {
+            if(this->match(is_empty) || that.match(is_any)) {
                 return that;
             }
-            else if(that.match(is_empty)) {
+            else if(that.match(is_empty) || this->match(is_any)) {
                 return *this;
             }
             else {
@@ -173,7 +181,7 @@ namespace tfl {
             if(this->match(is_closure)) {
                 return *this;
             }
-            else if(this->match(is_empty) | this->match(is_epsilon)) {
+            else if(this->match(is_empty) || this->match(is_epsilon)) {
                 return epsilon();
             }
             else {
@@ -191,7 +199,23 @@ namespace tfl {
         }
 
         Regex operator&(Regex const& that) const {
-            return Regex(Conjunction{*this, that});
+            if(this->match(is_empty) || that.match(is_empty)) {
+                return empty();
+            }
+            else if(this->match(is_any)) {
+                return that;
+            }
+            else if(that.match(is_any)) {
+                return *this;
+            }
+            else {
+                return Regex(Conjunction{*this, that});
+            }
+        }
+
+        static Regex any() {
+            static Regex const any{~empty()};
+            return any;
         }
 
         Regex operator+() const {
@@ -447,7 +471,7 @@ namespace tfl {
         }
 
         static Regex<T> any() {
-            return ~empty();
+            return Regex<T>::any();
         }
 
         template<iterable<T> C>
