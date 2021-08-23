@@ -29,6 +29,7 @@ namespace tfl {
         virtual R sequence(Regex<T> const& left, Regex<T> const& right) const = 0;
         virtual R kleene_star(Regex<T> const& regex) const = 0;
         virtual R complement(Regex<T> const& regex) const = 0;
+        virtual R conjunction(Regex<T> const& left, Regex<T> const& right) const = 0;
     };
 
     template<typename T>
@@ -42,6 +43,7 @@ namespace tfl {
             virtual bool sequence(Regex<T> const& left, Regex<T> const& right) const { return false; }
             virtual bool kleene_star(Regex<T> const& regex) const { return false; }
             virtual bool complement(Regex<T> const& regex) const { return false; }
+            virtual bool conjunction(Regex<T> const& left, Regex<T> const& right) const { return false; }
         };
 
         static class: public IsMatcher {
@@ -95,10 +97,16 @@ namespace tfl {
             template<typename R> inline R match(RegexMatcher<T, R> const& matcher) const { return matcher.complement(_underlying); }
         };
 
-        using Variant = std::variant<Empty, Epsilon, Literal, Disjunction, Sequence, KleeneStar, Complement>;
+        struct Conjunction {
+            Regex const _left;
+            Regex const _right;
+            template<typename R> inline R match(RegexMatcher<T, R> const& matcher) const { return matcher.conjunction(_left, _right); }
+        };
+
+        using Variant = std::variant<Empty, Epsilon, Literal, Disjunction, Sequence, KleeneStar, Complement, Conjunction>;
         std::shared_ptr<Variant> _regex;
 
-        template<typename R> requires is_among_v<R, Empty, Epsilon, Literal, Disjunction, Sequence, KleeneStar, Complement>
+        template<typename R> requires is_among_v<R, Empty, Epsilon, Literal, Disjunction, Sequence, KleeneStar, Complement, Conjunction>
         Regex(R&& regex): _regex(std::make_shared<Variant>(std::forward<R>(regex))) {}
 
     public:
@@ -171,8 +179,16 @@ namespace tfl {
             }
         }
 
+        Regex operator&(Regex const& that) const {
+            return Regex(Conjunction{*this, that});
+        }
+
         Regex operator+() const {
             return *this - Regex(KleeneStar(*this));
+        }
+
+        Regex operator/(Regex const& that) const {
+            return *this & ~that;
         }
 
     };
@@ -185,7 +201,8 @@ namespace tfl {
         enum class Precedence {
             ATOM = 1,
             SEQ = 2,
-            DISJ = 3,
+            CONJ = 3,
+            DISJ = 4,
         };
 
         using Result = std::pair<std::string, Precedence>;
@@ -224,6 +241,9 @@ namespace tfl {
             virtual Result complement(Regex<T> const& regex) const {
                 return unop_rightassoc("¬", rec(regex), Precedence::ATOM);
             }
+            virtual Result conjunction(Regex<T> const& left, Regex<T> const& right) const { 
+                return binop_leftassoc(" & ", rec(left), rec(right), Precedence::CONJ);
+            }
         } constexpr printer{};
     public:
         static std::string to_string(Regex<T> const& regex) {
@@ -247,6 +267,7 @@ namespace tfl {
             Size sequence(Regex<T> const& left, Regex<T> const& right) const { return std::max(rec(left), rec(right)) + 1; }
             Size kleene_star(Regex<T> const& regex) const { return rec(regex) + 1; }
             Size complement(Regex<T> const& regex) const { return rec(regex) + 1; }
+            Size conjunction(Regex<T> const& left, Regex<T> const& right) const { return std::max(rec(left), rec(right)) + 1; }
         } constexpr probe{};
 
         static class: public RegexMatcher<T, Size> {
@@ -259,6 +280,7 @@ namespace tfl {
             Size sequence(Regex<T> const& left, Regex<T> const& right) const { return rec(left) + rec(right) + 1; }
             Size kleene_star(Regex<T> const& regex) const { return rec(regex) + 1; }
             Size complement(Regex<T> const& regex) const { return rec(regex) + 1; }
+            Size conjunction(Regex<T> const& left, Regex<T> const& right) const { return rec(left) + rec(right) + 1; }
         } constexpr measurer{};
 
     protected:
@@ -289,6 +311,7 @@ namespace tfl {
             bool sequence(Regex<T> const& left, Regex<T> const& right) const { return rec(left) && rec(right); }
             bool kleene_star(Regex<T> const&) const { return true; }  
             bool complement(Regex<T> const& regex) const { return !rec(regex); }  
+            bool conjunction(Regex<T> const& left, Regex<T> const& right) const { return rec(left) && rec(right); }
         } constexpr nullability_checker{};
 
         class RegexDeriver: public RegexMatcher<T, Regex<T>> {
@@ -325,6 +348,10 @@ namespace tfl {
             Regex<T> complement(Regex<T> const& regex) const {
                 return ~rec(regex);
             }  
+            
+            Regex<T> conjunction(Regex<T> const& left, Regex<T> const& right) const {
+                return rec(left) & rec(right);
+            }
         };
 
     protected:

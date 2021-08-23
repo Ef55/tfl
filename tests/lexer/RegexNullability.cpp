@@ -25,6 +25,9 @@ TEST_CASE("Combined regexes have expected nullability") {
         THEN("Their disjunction is nullable") {
             CHECK( nullable(l | r) );
         }
+        THEN("Their conjunction is nullable") {
+            CHECK( nullable(l & r) );
+        }
     }
 
     GIVEN("One nullable/ one non-nullable regex") {
@@ -41,6 +44,10 @@ TEST_CASE("Combined regexes have expected nullability") {
             CHECK( nullable(l | r) );
             CHECK( nullable(r | l) );
         }
+        THEN("Their conjunctions are non-nullable") {
+            CHECK( !nullable(l & r) );
+            CHECK( !nullable(r & l) );
+        }
     }
 
     GIVEN("Two non-nullable regex") {
@@ -54,6 +61,9 @@ TEST_CASE("Combined regexes have expected nullability") {
         }
         THEN("Their disjunction is non-nullable") {
             CHECK( !nullable(l | r) );
+        }
+        THEN("Their conjunction is non-nullable") {
+            CHECK( !nullable(l & r) );
         }
     }
 }

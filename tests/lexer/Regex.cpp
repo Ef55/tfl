@@ -115,14 +115,16 @@ TEMPLATE_TEST_CASE("Regexes accept/reject as expected", "[template]", tfl::Regex
 
         Regex r = *((a - b) | c);
 
-        CHECK( accepts(r, {}) );
-        CHECK( !accepts(r, {'a'}) );
-        CHECK( !accepts(r, {'b'}) );
-        CHECK( accepts(r, {'c'}) );
-        CHECK( accepts(r, {'a', 'b'}) );
-        CHECK( accepts(r, {'a', 'b', 'c'}) );
-        CHECK( accepts(r, {'a', 'b', 'a', 'b'}) );
-        CHECK( accepts(r, {'c', 'a', 'b', 'a', 'b', 'c'}) );
+        SECTION("*(ab | c)") {
+            CHECK( accepts(r, {}) );
+            CHECK( !accepts(r, {'a'}) );
+            CHECK( !accepts(r, {'b'}) );
+            CHECK( accepts(r, {'c'}) );
+            CHECK( accepts(r, {'a', 'b'}) );
+            CHECK( accepts(r, {'a', 'b', 'c'}) );
+            CHECK( accepts(r, {'a', 'b', 'a', 'b'}) );
+            CHECK( accepts(r, {'c', 'a', 'b', 'a', 'b', 'c'}) );
+        }
     }
 
     SECTION("Complement (~)") {
@@ -142,6 +144,20 @@ TEMPLATE_TEST_CASE("Regexes accept/reject as expected", "[template]", tfl::Regex
             CHECK( accepts(a, {'a'}) );
             CHECK( !accepts(a, {'b'}) );
             CHECK( !accepts(a, {'a', 'b'}) );
+        }
+    }
+
+    SECTION("Conjunction (&)") {
+        Regex r = *Regex::literal('a') & 
+            ~Regex::epsilon() & 
+            ~(Regex::literal('a') - Regex::literal('a'));
+
+        SECTION("*a & ¬ε & ¬(aa)") {
+            CHECK( !accepts(r, {}) );
+            CHECK( accepts(r, {'a'}) );
+            CHECK( !accepts(r, {'a', 'a'}) );
+            CHECK( accepts(r, {'a', 'a', 'a', 'a'}) );
+            CHECK( accepts(r, {'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a'}) );
         }
     }
 
@@ -207,6 +223,39 @@ TEMPLATE_TEST_CASE("Compacted regexes accept/reject as expected", "[template]", 
 
 TEMPLATE_TEST_CASE("Additional regex combinators accept/reject as expected", "[template]", tfl::RegexesDerivation<char>) {
     auto accepts = [](Regex r, std::initializer_list<char> ls){ return TestType::accepts(r, ls); };
+
+    SECTION("Kleene + (+)") {
+        Regex a = Regex::literal('a');
+        Regex b = Regex::literal('b');
+        Regex c = Regex::literal('c');
+
+        Regex r = +((a - b) | c);
+
+        SECTION("+(ab | c)") {
+            CHECK( !accepts(r, {}) );
+            CHECK( !accepts(r, {'a'}) );
+            CHECK( !accepts(r, {'b'}) );
+            CHECK( accepts(r, {'c'}) );
+            CHECK( accepts(r, {'a', 'b'}) );
+            CHECK( accepts(r, {'a', 'b', 'c'}) );
+            CHECK( accepts(r, {'a', 'b', 'a', 'b'}) );
+            CHECK( accepts(r, {'c', 'a', 'b', 'a', 'b', 'c'}) );
+        }
+    }
+
+    SECTION("Substraction (/)") {
+        Regex r = *Regex::literal('a') /
+            Regex::epsilon() / 
+            (Regex::literal('a') - Regex::literal('a'));
+
+        SECTION("*a / ε / aa") {
+            CHECK( !accepts(r, {}) );
+            CHECK( accepts(r, {'a'}) );
+            CHECK( !accepts(r, {'a', 'a'}) );
+            CHECK( accepts(r, {'a', 'a', 'a', 'a'}) );
+            CHECK( accepts(r, {'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a'}) );
+        }
+    }
 
     SECTION("Optional (opt)") {
         auto r = Regexes::opt(Regexes::literal('a'));

@@ -32,6 +32,7 @@ TEST_CASE("Regexes have expected size/depth") {
     test_size_depth(*(~a - b - c - d), "*(¬abcd)", 9, 6);
     test_size_depth(*( (a - b) - (c - d) ), "*((ab)(cd))", 8, 4);
     test_size_depth(*( (a - b) - (~c - d) ), "*((ab)(¬cd))", 9, 5);
+    test_size_depth(*( (a - b) & (~c - d) ), "*(ab&¬cd)", 9, 5);
 
 }
 

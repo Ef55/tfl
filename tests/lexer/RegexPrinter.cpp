@@ -24,6 +24,7 @@ TEST_CASE("Regexes are printed as expected") {
         CHECK( to_string(a | b) == "a | b" );
         CHECK( to_string(*b) == "*b" );
         CHECK( to_string(~c) == "¬c" );
+        CHECK( to_string(a & b) == "a & b" );
     }
 
     SECTION("Sequence associativity") {
@@ -36,21 +37,27 @@ TEST_CASE("Regexes are printed as expected") {
         CHECK( to_string(a | (b | c)) == "a | (b | c)" );
     }
 
-    SECTION("Sequence/disjunction combinations") {
-        CHECK( to_string((a - b) | (c - a)) == "ab | ca" );
+    SECTION("Conjunction associativity") {
+        CHECK( to_string(a & b & c) == "a & b & c" );
+        CHECK( to_string(a & (b & c)) == "a & (b & c)" );
+    }
+
+    SECTION("Sequence/disjunction/conjunction combinations") {
+        CHECK( to_string((a - b) | (c & a)) == "ab | c & a" );
         CHECK( to_string(a - (b | c) - a) == "a(b | c)a" );
+        CHECK( to_string((a - b) & c) == "ab & c" );
     }
 
     SECTION("Closure/binary combinations") {
-        CHECK( to_string((*a - b) | c) == "*ab | c" );
-        CHECK( to_string(*(a - b) | c) == "*(ab) | c" );
-        CHECK( to_string(*((a - b) | c)) == "*(ab | c)" );
+        CHECK( to_string((*a - b) | (c & a)) == "*ab | c & a" );
+        CHECK( to_string(*(a - b) | (c & a)) == "*(ab) | c & a" );
+        CHECK( to_string(*((a - b) | (c & a))) == "*(ab | c & a)" );
     }
 
     SECTION("Complement/binary combinations") {
-        CHECK( to_string((~a - b) | c) == "¬ab | c" );
-        CHECK( to_string(~(a - b) | c) == "¬(ab) | c" );
-        CHECK( to_string(~((a - b) | c)) == "¬(ab | c)" );
+        CHECK( to_string((~a - b) | (c & a)) == "¬ab | c & a" );
+        CHECK( to_string(~(a - b) | (c & a)) == "¬(ab) | c & a" );
+        CHECK( to_string(~((a - b) | (c & a))) == "¬(ab | c & a)" );
     }
 
     SECTION("Complement/closure combinations") {
