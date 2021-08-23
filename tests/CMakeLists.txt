@@ -2,9 +2,9 @@ set(TEST_SRC
     "lexer/Lexer.cpp"
     "lexer/Regex.cpp"
     "lexer/RegexNullability.cpp"
-    "lexer/RegexDerivation.cpp"
     "lexer/RegexMetrics.cpp"
     "lexer/RegexPrinter.cpp"
+    "lexer/RegexAlphabet.cpp"
     "parser/Parser.cpp"
     "parser/Parsers.cpp"
 )

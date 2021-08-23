@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <set>
 
 #include "Stringify.hpp"
 #include "Concepts.hpp"
@@ -113,23 +114,23 @@ namespace tfl {
                 }
 
             public:
-                virtual Result empty() const { return {"∅", Precedence::ATOM}; }
-                virtual Result epsilon() const { return {"ε", Precedence::ATOM}; }
-                virtual Result alphabet() const { return {"Σ", Precedence::ATOM}; }
-                virtual Result literal(T const& lit) const { return {stringify(lit), Precedence::ATOM}; }
-                virtual Result disjunction(Regex<T> const& left, Regex<T> const& right) const { 
+                Result empty() const { return {"∅", Precedence::ATOM}; }
+                Result epsilon() const { return {"ε", Precedence::ATOM}; }
+                Result alphabet() const { return {"Σ", Precedence::ATOM}; }
+                Result literal(T const& lit) const { return {stringify(lit), Precedence::ATOM}; }
+                Result disjunction(Regex<T> const& left, Regex<T> const& right) const { 
                     return binop_leftassoc(" | ", rec(left), rec(right), Precedence::DISJ);
                 }
-                virtual Result sequence(Regex<T> const& left, Regex<T> const& right) const {
+                Result sequence(Regex<T> const& left, Regex<T> const& right) const {
                     return binop_leftassoc("", rec(left), rec(right), Precedence::SEQ);
                 }
-                virtual Result kleene_star(Regex<T> const& regex) const {
+                Result kleene_star(Regex<T> const& regex) const {
                     return unop_rightassoc("*", rec(regex), Precedence::ATOM);
                 }
-                virtual Result complement(Regex<T> const& regex) const {
+                Result complement(Regex<T> const& regex) const {
                     return unop_rightassoc("¬", rec(regex), Precedence::ATOM);
                 }
-                virtual Result conjunction(Regex<T> const& left, Regex<T> const& right) const { 
+                Result conjunction(Regex<T> const& left, Regex<T> const& right) const { 
                     return binop_leftassoc(" & ", rec(left), rec(right), Precedence::CONJ);
                 }
             };
@@ -175,6 +176,35 @@ namespace tfl {
                 Regex<T> complement(Regex<T> const& regex) const { return ~rec(regex); }  
                 Regex<T> conjunction(Regex<T> const& left, Regex<T> const& right) const { return rec(left) & rec(right); }
             };
+
+            template<typename T, class R>
+            class AlphabetFinder final: public Base<T, R> {
+                using Base<T, R>::rec;
+            public:
+
+                R empty() const { return R{}; }
+                R epsilon() const { return R{}; }
+                R alphabet() const { return R{}; }
+                R literal(T const& literal) const  { return R{literal}; }
+                R disjunction(Regex<T> const& left, Regex<T> const& right) const { 
+                    R l(rec(left));
+                    l.merge(rec(right));
+                    return l; 
+                }
+                R sequence(Regex<T> const& left, Regex<T> const& right) const { 
+                    R l(rec(left));
+                    l.merge(rec(right));
+                    return l; 
+                }
+                R kleene_star(Regex<T> const& regex) const { return rec(regex); }
+                R complement(Regex<T> const& regex) const { return rec(regex); }
+                R conjunction(Regex<T> const& left, Regex<T> const& right) const { 
+                    R l(rec(left));
+                    l.merge(rec(right));
+                    return l; 
+                }
+            };
+            template<typename T, class R> constexpr AlphabetFinder<T, R> alphabet_finder{};
         }
 
         
@@ -233,5 +263,10 @@ namespace tfl {
         }
 
         return res;
+    }
+
+    template<typename T, class R = std::set<T>>
+    R generate_minimal_alphabet(Regex<T> const& regex) {
+        return regex.match(matchers::alphabet_finder<T, R>);
     }
 }

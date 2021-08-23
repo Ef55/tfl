@@ -69,6 +69,6 @@ TEST_CASE("Compacted regexes have expected size/depth") {
     test_singleton(f & any, "*Σ & a");
 
     test_dualton(**a, "**a");
-    test_dualton(any | f, "a | *Σ");
-    test_dualton(f | any, "*Σ | a");
+    test_dualton(a | any, "a | *Σ");
+    test_dualton(any | a, "*Σ | a");
 }
