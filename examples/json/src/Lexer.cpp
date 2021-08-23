@@ -15,12 +15,12 @@ static class: tfl::Regexes<char> {
 
     // String
     Regex const quote = literal('"');
-    Regex const str_char = literal([](char c){ return c != '"' && c != '\\' && (unsigned char)c >= u' '; });
+    Regex const str_char = alphabet() / (literal('\\') | quote | range('\0', ' '-1));
     Regex const ctr_char = any_of("\"\\/bfnrt"_v);
     Regex const hex_digit = range('0', '9') | range('a', 'f') | range('A', 'F');
-    Regex const unicode = literal('u') & hex_digit & hex_digit & hex_digit & hex_digit;
-    Regex const control = literal('\\') & (ctr_char | unicode);
-    Regex const string = quote & *(str_char | control) & quote;
+    Regex const unicode = literal('u') - hex_digit - hex_digit - hex_digit - hex_digit;
+    Regex const control = literal('\\') - (ctr_char | unicode);
+    Regex const string = quote - *(str_char | control) - quote;
 
     // Boolean
     Regex const truu = word("true"_v);
@@ -33,11 +33,11 @@ static class: tfl::Regexes<char> {
     Regex const digit19 = range('1', '9');
     Regex const digit = range('0', '9');
 
-    Regex const number_base = opt(literal('-')) & (literal('0') | (digit19 & *digit));
-    Regex const number_fraction = literal('.') & +digit;
-    Regex const number_exponent = any_of("eE"_v) & opt(any_of("+-"_v)) & +digit;
+    Regex const number_base = opt(literal('-')) - (literal('0') | (digit19 - *digit));
+    Regex const number_fraction = literal('.') - +digit;
+    Regex const number_exponent = any_of("eE"_v) - opt(any_of("+-"_v)) - +digit;
 
-    Regex const number = number_base & opt(number_fraction) & opt(number_exponent);
+    Regex const number = number_base - opt(number_fraction) - opt(number_exponent);
 
     tfl::Lexer<char, Token, std::string> const lexer = tfl::Lexer<char, Token, std::string>::make({
         {+whitespace,    [](auto){   return ' '; }},

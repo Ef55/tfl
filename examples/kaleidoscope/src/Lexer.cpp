@@ -14,19 +14,19 @@ static class: tfl::Regexes<char> {
 
     Regex const keyword     = any_of({word("def"_v), word("extern"_v), word("if"_v), word("then"_v), word("else"_v)});
     Regex const space       = any_of("\t\n\v\f\r "_v);
-    Regex const identifier  = alpha & *(alpha | digit);
+    Regex const identifier  = alpha - *(alpha | digit);
     Regex const number      = +(digit | literal('.'));
 
     Regex const sharp       = literal('#');
-    Regex const no_nl       = literal([](auto chr){ return chr != '\n'; });
+    Regex const no_nl       = alphabet() / literal('\n');
 
     tfl::Lexer<char, Token, std::string> const lexer = tfl::Lexer<char, Token, std::string>::make({
         {keyword,           [](auto w){ return from_string(w); }},
         {identifier,        [](auto w){ return w; }},
         {space,             [](auto){   return Special::SPACE; }},
         {number,            [](auto w){ return std::stod(w); }},
-        {sharp & *no_nl,    [](auto){   return Special::COMMENT; }},
-        {any_literal(),     [](auto w){ return w[0]; }}
+        {sharp - *no_nl,    [](auto){   return Special::COMMENT; }},
+        {alphabet(),        [](auto w){ return w[0]; }}
     }).map([](auto v){ return v.value(); })
       .filter([](auto v){ return (v != Token{Special::SPACE}) && (v != Token{Special::COMMENT}); });
 

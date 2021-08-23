@@ -22,11 +22,11 @@ static class: tfl::Regexes<char> {
     Regex const num     = range('0', '9');
     Regex const op      = any_of({'+', '-', '*', '/'});
     Regex const space   = any_of({'\t', '\n', '\v', '\f', '\r', ' '});
-    Regex const newline = opt(literal('\r')) & literal('\n');
+    Regex const newline = opt(literal('\r')) - literal('\n');
 
     tfl::Lexer<char, Token, std::string> const lexer = tfl::Lexer<char, Token, std::string>::make({
         {*newline,      [](auto){   return Special::NEWLINE; }},
-        {num & *num,    [](auto w){ return std::stoi(w); }},
+        {num - *num,    [](auto w){ return std::stoi(w); }},
         {*space,        [](auto){   return Special::SPACE; }},
         {op,            [](auto s){ return s[0]; }},
         {literal('('),  [](auto){   return Special::OP_PAR; }},
