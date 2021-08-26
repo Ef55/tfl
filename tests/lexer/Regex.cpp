@@ -3,7 +3,6 @@
 
 #include "tfl/Regex.hpp"
 
-
 using Regex = tfl::Regex<char>;
 using Regexes = tfl::Regexes<char>;
 
@@ -16,9 +15,18 @@ struct RegexesDerivation {
     }
 };
 
+#define ACCEPTERS RegexesDerivation
+
 static auto to_string = tfl::to_string<char>;
+
+static Regex const a = Regex::literal('a');
+static Regex const b = Regex::literal('b');
+static Regex const c = Regex::literal('c');
+static Regex const e = Regex::epsilon();
+static Regex const s = Regex::alphabet();
+static Regex const any = ~Regex::empty();
  
-TEMPLATE_TEST_CASE("Regexes accept/reject as expected", "[template]", RegexesDerivation) {
+TEMPLATE_TEST_CASE("Regexes accept/reject as expected", "[template]", ACCEPTERS) {
     auto accepts = TestType::accepts;
   
     SECTION("∅ (empty)") {
@@ -45,109 +53,156 @@ TEMPLATE_TEST_CASE("Regexes accept/reject as expected", "[template]", RegexesDer
         CHECK( !accepts(r, {}) );
         CHECK( accepts(r, {'a'}) );
         CHECK( accepts(r, {'b'}) );
+        CHECK( accepts(r, {'z'}) );
         CHECK( !accepts(r, {'a', 'b'}) );
     }
 
     SECTION("Literal (literal)") {
 
         SECTION("'a'") {
-            Regex a = Regex::literal('a');
-
             CHECK( !accepts(a, {}) );
             CHECK( accepts(a, {'a'}) );
             CHECK( !accepts(a, {'b'}) );
+            CHECK( !accepts(a, {'c'}) );
+            CHECK( !accepts(a, {'z'}) );
             CHECK( !accepts(a, {'a', 'b'}) );
         }
 
         SECTION("'b'") {
-            Regex b = Regex::literal('b');
-
             CHECK( !accepts(b, {}) );
             CHECK( !accepts(b, {'a'}) );
             CHECK( accepts(b, {'b'}) );
+            CHECK( !accepts(b, {'c'}) );
+            CHECK( !accepts(b, {'z'}) );
             CHECK( !accepts(b, {'a', 'b'}) );
+        }
+
+        SECTION("'c'") {
+            CHECK( !accepts(c, {}) );
+            CHECK( !accepts(c, {'a'}) );
+            CHECK( !accepts(c, {'b'}) );
+            CHECK( accepts(c, {'c'}) );
+            CHECK( !accepts(c, {'z'}) );
+            CHECK( !accepts(c, {'a', 'b'}) );
         }
     }
 
     SECTION("Disjunction (|)") {
-        Regex a = Regex::literal('a');
-        Regex b = Regex::literal('b');
-        Regex e = Regex::epsilon();
-
-        Regex ab = a | b;
-        Regex r = ab | e;
-
         SECTION("a | b") {
+            Regex ab = a | b;
             CHECK( !accepts(ab, {}) );
             CHECK( accepts(ab, {'a'}) );
             CHECK( accepts(ab, {'b'}) );
+            CHECK( !accepts(ab, {'z'}) );
             CHECK( !accepts(ab, {'a', 'b'}) );
+            CHECK( !accepts(ab, {'z', 'b'}) );
+            CHECK( !accepts(ab, {'b', 'a'}) );
+            CHECK( !accepts(ab, {'z', 'z'}) );
         }
 
         SECTION("a | b | ε") {
+            Regex r = a | b | e;
             CHECK( accepts(r, {}) );
             CHECK( accepts(r, {'a'}) );
             CHECK( accepts(r, {'b'}) );
+            CHECK( !accepts(r, {'z'}) );
             CHECK( !accepts(r, {'a', 'b'}) );
+            CHECK( !accepts(r, {'z', 'b'}) );
+            CHECK( !accepts(r, {'b', 'a'}) );
+            CHECK( !accepts(r, {'z', 'z'}) );
         }
     }
 
     SECTION("Sequence (-)") {
-        Regex a = Regex::literal('a');
-        Regex b = Regex::literal('b');
-        Regex e = Regex::epsilon();
-
-        Regex ab = a - b;
-        Regex abe = ab - e;
-        Regex aba = ab - a;
-
         SECTION("ab") {
+            Regex ab = a - b;
             CHECK( !accepts(ab, {}) );
             CHECK( !accepts(ab, {'a'}) );
             CHECK( !accepts(ab, {'b'}) );
             CHECK( accepts(ab, {'a', 'b'}) );
+            CHECK( !accepts(ab, {'z', 'b'}) );
+            CHECK( !accepts(ab, {'a', 'z'}) );
             CHECK( !accepts(ab, {'a', 'b', 'a'}) );
+            CHECK( !accepts(ab, {'z', 'b', 'a'}) );
+            CHECK( !accepts(ab, {'a', 'z', 'z'}) );
         }
 
         SECTION("abε") {
+            Regex abe = a - b - e;
             CHECK( !accepts(abe, {}) );
             CHECK( !accepts(abe, {'a'}) );
             CHECK( !accepts(abe, {'b'}) );
             CHECK( accepts(abe, {'a', 'b'}) );
+            CHECK( !accepts(abe, {'z', 'b'}) );
+            CHECK( !accepts(abe, {'a', 'z'}) );
             CHECK( !accepts(abe, {'a', 'b', 'a'}) );
+            CHECK( !accepts(abe, {'z', 'b', 'a'}) );
+            CHECK( !accepts(abe, {'a', 'z', 'z'}) );
         }
 
-        SECTION("aba") {
+        SECTION("a(ba)") {
+            Regex aba = a - (b - a);
             CHECK( !accepts(aba, {}) );
             CHECK( !accepts(aba, {'a'}) );
             CHECK( !accepts(aba, {'b'}) );
             CHECK( !accepts(aba, {'a', 'b'}) );
+            CHECK( !accepts(aba, {'z', 'b'}) );
+            CHECK( !accepts(aba, {'a', 'z'}) );
             CHECK( accepts(aba, {'a', 'b', 'a'}) );
+            CHECK( !accepts(aba, {'z', 'b', 'a'}) );
+            CHECK( !accepts(aba, {'a', 'z', 'z'}) );
+        }
+
+        SECTION("ΣbΣ") {
+            Regex sbs = s - b - s;
+            CHECK( !accepts(sbs, {}) );
+            CHECK( !accepts(sbs, {'a'}) );
+            CHECK( !accepts(sbs, {'b'}) );
+            CHECK( !accepts(sbs, {'a', 'b'}) );
+            CHECK( !accepts(sbs, {'z', 'b'}) );
+            CHECK( !accepts(sbs, {'a', 'z'}) );
+            CHECK( accepts(sbs, {'a', 'b', 'a'}) );
+            CHECK( accepts(sbs, {'b', 'b', 'b'}) );
+            CHECK( accepts(sbs, {'z', 'b', 'a'}) );
+            CHECK( !accepts(sbs, {'a', 'z', 'z'}) );
+            CHECK( !accepts(sbs, {'b', 'z', 'b'}) );
         }
     }
 
     SECTION("Closure (*)") {
-        Regex a = Regex::literal('a');
-        Regex b = Regex::literal('b');
-        Regex c = Regex::literal('c');
-
-        Regex r = *((a - b) | c);
+        SECTION("*a") {
+            Regex r = *a;
+            CHECK( accepts(r, {}) );
+            CHECK( accepts(r, {'a'}) );
+            CHECK( !accepts(r, {'b'}) );
+            CHECK( !accepts(r, {'c'}) );
+            CHECK( !accepts(r, {'z'}) );
+            CHECK( accepts(r, {'a', 'a'}) );
+            CHECK( !accepts(r, {'a', 'b', 'a'}) );
+            CHECK( !accepts(r, {'a', 'b', 'z'}) );
+            CHECK( accepts(r, {'a', 'a', 'a', 'a'}) );
+            CHECK( accepts(r, {'a', 'a', 'a', 'a', 'a'}) );
+            CHECK( accepts(r, {'a', 'a', 'a', 'a', 'a', 'a'}) );
+        }
 
         SECTION("*(ab | c)") {
+            Regex r = *((a - b) | c);
             CHECK( accepts(r, {}) );
             CHECK( !accepts(r, {'a'}) );
             CHECK( !accepts(r, {'b'}) );
             CHECK( accepts(r, {'c'}) );
+            CHECK( !accepts(r, {'z'}) );
             CHECK( accepts(r, {'a', 'b'}) );
             CHECK( accepts(r, {'a', 'b', 'c'}) );
+            CHECK( !accepts(r, {'a', 'b', 'z'}) );
             CHECK( accepts(r, {'a', 'b', 'a', 'b'}) );
+            CHECK( !accepts(r, {'a', 'b', 'z', 'a', 'b'}) );
+            CHECK( !accepts(r, {'c', 'a', 'b', 'a', 'c'}) );
             CHECK( accepts(r, {'c', 'a', 'b', 'a', 'b', 'c'}) );
         }
     }
 
     SECTION("Complement (~)") {
-        Regex a = Regex::literal('a');
-
         SECTION("¬a") {
             Regex na = ~a;
             CHECK( accepts(na, {}) );
@@ -158,19 +213,82 @@ TEMPLATE_TEST_CASE("Regexes accept/reject as expected", "[template]", RegexesDer
 
         SECTION("¬¬a") {
             Regex nna = ~~a;
-            CHECK( !accepts(a, {}) );
-            CHECK( accepts(a, {'a'}) );
-            CHECK( !accepts(a, {'b'}) );
-            CHECK( !accepts(a, {'a', 'b'}) );
+            CHECK( !accepts(nna, {}) );
+            CHECK( accepts(nna, {'a'}) );
+            CHECK( !accepts(nna, {'b'}) );
+            CHECK( !accepts(nna, {'a', 'b'}) );
+        }
+
+        SECTION("¬∅") {
+            CHECK( accepts(any, {}) );
+            CHECK( accepts(any, {'a'}) );
+            CHECK( accepts(any, {'b'}) );
+            CHECK( accepts(any, {'a', 'b'}) );
+        }
+
+        SECTION("¬(a | b)") {
+            Regex r = ~(a | b);
+            CHECK( accepts(r, {}) );
+            CHECK( !accepts(r, {'a'}) );
+            CHECK( !accepts(r, {'b'}) );
+            CHECK( accepts(r, {'z'}) );
+            CHECK( accepts(r, {'a', 'b'}) );
+            CHECK( accepts(r, {'z', 'b'}) );
+            CHECK( accepts(r, {'b', 'a'}) );
+            CHECK( accepts(r, {'z', 'z'}) );
+        }
+
+        SECTION("¬ab | a") {
+            Regex r = (~a-b) | a;
+            CHECK( !accepts(r, {}) );
+            CHECK( accepts(r, {'a'}) );
+            CHECK( accepts(r, {'b'}) );
+            CHECK( !accepts(r, {'z'}) );
+            CHECK( !accepts(r, {'a', 'b'}) );
+            CHECK( accepts(r, {'c', 'b'}) );
+            CHECK( accepts(r, {'z', 'b'}) );
+            CHECK( !accepts(r, {'b', 'a'}) );
+            CHECK( !accepts(r, {'z', 'z'}) );
+            CHECK( accepts(r, {'a', 'a', 'b'}) );
+            CHECK( accepts(r, {'z', 'z', 'z', 'b'}) );
         }
     }
 
     SECTION("Conjunction (&)") {
-        Regex r = *Regex::literal('a') & 
-            ~Regex::epsilon() & 
-            ~(Regex::literal('a') - Regex::literal('a'));
+        SECTION("a & b") {
+            Regex r = a & b;
+            CHECK( !accepts(r, {}) );
+            CHECK( !accepts(r, {'a'}) );
+            CHECK( !accepts(r, {'b'}) );
+            CHECK( !accepts(r, {'z'}) );
+            CHECK( !accepts(r, {'a', 'b'}) );
+            CHECK( !accepts(r, {'z', 'b'}) );
+            CHECK( !accepts(r, {'b', 'a'}) );
+            CHECK( !accepts(r, {'z', 'z'}) );
+        }
+
+        SECTION("a¬∅ & ¬∅b") {
+            Regex r = a-any & any-b;
+            CHECK( !accepts(r, {}) );
+            CHECK( !accepts(r, {'a'}) );
+            CHECK( !accepts(r, {'b'}) );
+            CHECK( !accepts(r, {'z'}) );
+            CHECK( accepts(r, {'a', 'b'}) );
+            CHECK( !accepts(r, {'z', 'b'}) );
+            CHECK( !accepts(r, {'b', 'a'}) );
+            CHECK( !accepts(r, {'z', 'z'}) );
+            CHECK( accepts(r, {'a', 'a', 'a', 'b'}) );
+            CHECK( accepts(r, {'a', 'b', 'b', 'b'}) );
+            CHECK( !accepts(r, {'b', 'a', 'a', 'a'}) );
+            CHECK( !accepts(r, {'b', 'b', 'b', 'a'}) );
+            CHECK( accepts(r, {'a', 'c', 'z', 'b'}) );
+            CHECK( accepts(r, {'a', 'z', 'z', 'z', 'b'}) );
+        }
 
         SECTION("*a & ¬ε & ¬(aa)") {
+            Regex r = *a & 
+                ~Regex::epsilon() & 
+                ~(a - a);
             CHECK( !accepts(r, {}) );
             CHECK( accepts(r, {'a'}) );
             CHECK( !accepts(r, {'a', 'a'}) );
@@ -181,7 +299,7 @@ TEMPLATE_TEST_CASE("Regexes accept/reject as expected", "[template]", RegexesDer
 
 }
 
-TEMPLATE_TEST_CASE("Compacted regexes accept/reject as expected", "[template]", RegexesDerivation) {
+TEMPLATE_TEST_CASE("Compacted regexes accept/reject as expected", "[template]", ACCEPTERS) {
     auto accepts = TestType::accepts_v;
 
     auto e = Regex::epsilon();
@@ -264,7 +382,7 @@ TEMPLATE_TEST_CASE("Compacted regexes accept/reject as expected", "[template]", 
     }
 }
 
-TEMPLATE_TEST_CASE("Additional regex combinators accept/reject as expected", "[template]", RegexesDerivation) {
+TEMPLATE_TEST_CASE("Additional regex combinators accept/reject as expected", "[template]", ACCEPTERS) {
     auto accepts = TestType::accepts;
 
     SECTION("Kleene + (+)") {
