@@ -6,6 +6,7 @@ set(TEST_SRC
     "lexer/RegexPrinter.cpp"
     "lexer/RegexAlphabet.cpp"
     "lexer/DFA.cpp"
+    "lexer/NFA.cpp"
     "parser/Parser.cpp"
     "parser/Parsers.cpp"
 )
