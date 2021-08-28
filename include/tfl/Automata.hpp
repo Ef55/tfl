@@ -133,11 +133,8 @@ namespace tfl {
 
         public:
             template<range R>
-            Builder(R&& inputs, StateIdx size = 1): _transitions(), _unknown_transitions(size, std::nullopt), _accepting_states(size, 0) {
-                if(size == 0) {
-                    throw std::invalid_argument("A DFA must have at least one state.");
-                }
-                for(auto& input: inputs) {
+            Builder(R&& inputs, StateIdx size = 0): _transitions(), _unknown_transitions(size, std::nullopt), _accepting_states(size, 0) {
+                for(auto input: inputs) {
                     add_input(input);
                 }
             }
@@ -177,7 +174,7 @@ namespace tfl {
             std::pair<Builder&, StateIdx> add_state(std::optional<StateIdx> const& to = std::nullopt, bool accepting = false) {
                 sanity();
                 for(auto& it: _transitions) {
-                    it->second.emplace_back(to);
+                    it.second.emplace_back(to);
                 }
                 _unknown_transitions.emplace_back(to);
                 _accepting_states.push_back(accepting);
@@ -263,8 +260,11 @@ namespace tfl {
             }
 
             DFA finalize() const {
+                if(state_count() == 0) {
+                    throw std::invalid_argument("A DFA must have at least one state.");
+                }
                 if(!is_complete()) {
-                    throw std::logic_error("Cannot finalize and incomplete DFA.");
+                    throw std::logic_error("Cannot finalize an incomplete DFA.");
                 }
 
                 return DFA(
@@ -294,8 +294,6 @@ namespace tfl {
             }
         };
     };
-
-
 
     template<typename T>
     class NFA {
@@ -446,9 +444,6 @@ namespace tfl {
             _unknown_transitions(size, StateIndices{}), 
             _accepting_states(size, 0) 
             {
-                if(size == 0) {
-                    throw std::invalid_argument("A DFA must have at least one state.");
-                }
                 for(auto& input: inputs) {
                     add_input(input);
                 }
@@ -480,7 +475,6 @@ namespace tfl {
                 std::queue<StateIdx> queue;
                 queue.push(state);
 
-                // TODO refactor to reduce memory usage
                 StateIndices closure;
 
                 while(!queue.empty()) {
@@ -625,6 +619,9 @@ namespace tfl {
 
             NFA finalize() const {
                 sanity();
+                if(state_count() == 0) {
+                    throw std::invalid_argument("A NFA must have at least one state.");
+                }
 
                 return NFA(
                     _transitions,
@@ -636,6 +633,97 @@ namespace tfl {
 
             operator NFA() const {
                 return finalize();
+            }
+
+            DFA<T>::Builder determinize() {
+                epsilon_elimination();
+
+                auto inputs = transform_view(_transitions, [](auto p){ return p.first; });
+                auto transition = [this](std::vector<bool> state, T const& input) {
+                    std::vector<bool> out(state_count(), false);
+
+                    for(StateIdx i = 0; i < state_count(); ++i) {
+                        if(state[i]) {
+                            for(StateIdx j: _transitions.at(input)[i]) {
+                                out[j] = true;
+                            }
+                        }
+                    }
+
+                    return out;
+                };
+
+                auto u_transition = [this](std::vector<bool> state) {
+                    std::vector<bool> out(state_count(), false);
+
+                    for(StateIdx i = 0; i < state_count(); ++i) {
+                        if(state[i]) {
+                            for(StateIdx j: _unknown_transitions[i]) {
+                                out[j] = true;
+                            }
+                        }
+                    }
+
+                    return out;
+                };
+
+                auto accepting = [this](std::vector<bool> state) {
+                    for(StateIdx i = 0; i < state_count(); ++i) {
+                        if(state[i] && accepting_states()[i]) {
+                            return true;
+                        }
+                    }
+                    return false;
+                };
+                
+                std::vector<bool> start(state_count(), false);
+                start[0] = true;
+
+                typename DFA<T>::Builder builder(inputs);
+                std::unordered_map<std::vector<bool>, typename DFA<T>::StateIdx> indices;
+                indices.emplace(start, builder.add_state().second);
+
+                std::queue<std::vector<bool>> queue;
+                queue.push(start);
+
+                while(!queue.empty()) {
+                    std::vector<bool> current = queue.front();
+                    queue.pop();
+
+                    for(auto input: inputs) {
+                        std::vector<bool> to = transition(current, input);
+
+                        if(!indices.contains(to)) {
+                            indices.emplace(to, builder.add_state().second);
+                            queue.push(to);
+                        }
+
+                        builder.set_transition(indices.at(current), input, indices.at(to));
+                    }
+
+                    {
+                        std::vector<bool> to = u_transition(current);
+
+                        if(!indices.contains(to)) {
+                            indices.emplace(to, builder.add_state().second);
+                            queue.push(to);
+                        }
+
+                        builder.set_unknown_transition(indices.at(current), indices.at(to));
+                    }
+                }
+
+                for(auto p: indices) {
+                    if(accepting(p.first)) {
+                        builder.set_acceptance(p.second, true);
+                    }
+                }
+
+                return builder;
+            }
+
+            DFA<T>::Builder determinize() const {
+                return Builder(*this).determinize();
             }
         };
 
