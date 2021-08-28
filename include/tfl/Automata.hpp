@@ -73,23 +73,22 @@ namespace tfl {
             return _accepting_states;
         }
 
-        template<class It>
-        bool accepts(It beg, It end) const {
+        template<range R>
+        bool accepts(R&& range) const {
             StateIdx state = 0;
-            for(; beg != end; ++beg) {
+            for(
+                auto beg = range.begin(), end = range.end(); 
+                beg != end; 
+                ++beg
+            ) {
                 state = transition(state, *beg);
             }
 
             return accepting_states()[state];
         }
 
-        template<range R>
-        bool accepts(R&& range) const {
-            return accepts(range.begin(), range.end());
-        }
-
         bool accepts(std::initializer_list<T> ls) const {
-            return accepts(ls.begin(), ls.end());
+            return accepts<std::initializer_list<T>&>(ls);
         }
 
         class Builder final {
@@ -129,7 +128,17 @@ namespace tfl {
             }
 
         public:
-            Builder(StateIdx size = 0): _transitions(), _unknown_transitions(size, std::nullopt), _accepting_states(size, 0) {}
+            template<range R>
+            Builder(R&& inputs, StateIdx size = 1): _transitions(), _unknown_transitions(size, std::nullopt), _accepting_states(size, 0) {
+                if(size == 0) {
+                    throw std::invalid_argument("A DFA must have at least one state.");
+                }
+                for(auto& input: inputs) {
+                    add_input(input);
+                }
+            }
+            Builder(std::initializer_list<T> states = {}, StateIdx size = 0): Builder(views::all(states), size) {}
+            Builder(StateIdx size = 0): Builder(views::empty<T>, size) {}
 
             StateIdx state_count() const {
                 return _unknown_transitions.size();
@@ -151,28 +160,17 @@ namespace tfl {
                 return _accepting_states;
             }
 
-            StateIdx add_state(bool accepting = false) {
+            Builder& add_input(T const& input) {
                 sanity();
-                for(auto& it: _transitions) {
-                    it->second.emplace_back(std::nullopt);
-                }
-                _unknown_transitions.emplace_back(std::nullopt);
-                _accepting_states.push_back(accepting);
+                _transitions.insert(std::pair{
+                    input, 
+                    _unknown_transitions
+                });
                 sanity();
-                return state_count()-1;
+                return *this;
             }
 
-            bool add_input(T const& input) {
-                sanity();
-                bool res = _transitions.insert(std::pair{
-                        input, 
-                        std::vector(state_count(), std::optional<StateIdx>(std::nullopt))
-                    }).second;
-                sanity();
-                return res;
-            }
-
-            StateIdx add_state(StateIdx const& to, bool accepting = false) {
+            std::pair<Builder&, StateIdx> add_state(std::optional<StateIdx> const& to = std::nullopt, bool accepting = false) {
                 sanity();
                 for(auto& it: _transitions) {
                     it->second.emplace_back(to);
@@ -180,29 +178,67 @@ namespace tfl {
                 _unknown_transitions.emplace_back(to);
                 _accepting_states.push_back(accepting);
                 sanity();
-                return state_count()-1;
+                return { *this, state_count()-1 };
             }
 
-            void set_acceptance(StateIdx const& state, bool value) {
+            Builder& set_acceptance(StateIdx const& state, bool value) {
                 sanity();
                 check_state(state);
                 _accepting_states[state] = value;
                 sanity();
+                return *this;
             }
 
-            void set_transition(StateIdx const& state, T const& input, StateIdx const& to) {
+            template<range R>
+            Builder& set_acceptance(R&& states, bool value) {
+                sanity();
+                for(auto state: states) {
+                    check_state(state);
+                    _accepting_states[state] = value;
+                }
+                sanity();
+                return *this;
+            }
+
+            Builder& set_acceptance(std::initializer_list<T> states, bool value) {
+                return set_acceptance<std::initializer_list<T>&>(states, value);
+            }
+
+            Builder& set_transition(StateIdx const& state, T const& input, StateIdx const& to) {
                 sanity();
                 check_state(state);
                 check_input(input);
                 _transitions[input][state] = to;
                 sanity();
+                return *this;
             }
 
-            void set_unknown_transition(StateIdx const& state, StateIdx const& to) {
+            template<range R>
+            Builder& set_transitions(StateIdx const& state, R&& transitions) {
+                for(auto& p: transitions) {
+                    set_transition(state, std::get<0>(p), std::get<1>(p));
+                }
+                return *this;
+            }
+
+            Builder& set_transitions(StateIdx const& state, std::initializer_list<std::pair<T, StateIdx>> transitions) {
+                return set_transitions<std::initializer_list<std::pair<T, StateIdx>>&>(state, transitions);
+            }
+
+            Builder& set_unknown_transition(StateIdx const& state, StateIdx const& to) {
                 sanity();
                 check_state(state);
                 _unknown_transitions[state] = to;
                 sanity();
+                return *this;
+            }
+
+            Builder& set_all_transitions(StateIdx const& state, StateIdx const& to) {
+                set_unknown_transition(state, to);
+                for(auto& p: _transitions) {
+                    p.second[state] = to;
+                }
+                return *this;
             }
 
             bool is_complete() const {
