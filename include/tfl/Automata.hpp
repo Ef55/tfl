@@ -365,6 +365,10 @@ namespace tfl {
             return _accepting_states;
         }
 
+        bool has_epsilon_transitions() const {
+            return any_of(_epsilon_transitions, [](auto s){ return !s.empty(); });
+        }
+
         template<range R>
         bool accepts(R&& range) const {
             StateIndices current;
@@ -472,6 +476,26 @@ namespace tfl {
                 return _accepting_states;
             }
 
+            StateIndices epsilon_closure(StateIdx state) const {
+                std::queue<StateIdx> queue;
+                queue.push(state);
+
+                // TODO refactor to reduce memory usage
+                StateIndices closure;
+
+                while(!queue.empty()) {
+                    for(StateIdx state: _epsilon_transitions[queue.front()]) {
+                        if(closure.insert(state).second) {
+                            queue.push(state);
+                        }
+                    }
+
+                    queue.pop();
+                }
+
+                return closure;
+            }
+
             Builder& add_input(T const& input) {
                 sanity();
                 _transitions.insert(std::pair{
@@ -577,6 +601,24 @@ namespace tfl {
                 sanity();
                 check_state(state);
                 _unknown_transitions[state].insert(to);
+                sanity();
+                return *this;
+            }
+
+            Builder& epsilon_elimination() {
+                sanity();
+                for(StateIdx i = 0; i < state_count(); ++i) {
+                    for(StateIdx j: epsilon_closure(i)) {
+
+                        for(auto& p: _transitions) {
+                            add_transitions(i, p.first, p.second[j]);
+                        }
+
+                        add_unknown_transitions(i, _unknown_transitions[j]);
+
+                        _epsilon_transitions[i].clear();
+                    }
+                }
                 sanity();
                 return *this;
             }
