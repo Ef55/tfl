@@ -2,11 +2,12 @@
 #include <catch2/catch_template_test_macros.hpp>
 
 #include "tfl/Regex.hpp"
+#include "tfl/AutomataOps.hpp"
 
 using Regex = tfl::Regex<char>;
 using Regexes = tfl::Regexes<char>;
 
-struct RegexesDerivation {
+struct RegexDerivation {
     static bool accepts(Regex const& r, std::initializer_list<char> ls) {
         return tfl::is_nullable(tfl::derive(ls.begin(), ls.end(), r));
     }
@@ -15,7 +16,25 @@ struct RegexesDerivation {
     }
 };
 
-#define ACCEPTERS RegexesDerivation
+struct RegexDFA {
+    static bool accepts(Regex const& r, std::initializer_list<char> ls) {
+        return tfl::make_dfa(r).accepts(ls);
+    }
+    static bool accepts_v(Regex const& r, std::vector<char> ls) {
+        return tfl::make_dfa(r).accepts(ls);
+    }
+};
+
+struct RegexNFA {
+    static bool accepts(Regex const& r, std::initializer_list<char> ls) {
+        return tfl::make_nfa(r).accepts(ls);
+    }
+    static bool accepts_v(Regex const& r, std::vector<char> ls) {
+        return tfl::make_nfa(r).accepts(ls);
+    }
+};
+
+#define ACCEPTERS RegexDerivation, RegexDFA, RegexNFA
 
 static auto to_string = tfl::to_string<char>;
 

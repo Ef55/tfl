@@ -38,6 +38,19 @@ TEST_CASE("Basic NFAs can be built and used") {
         CHECK( !nfa.accepts({'a', 'b'}) );
     }
 
+    SECTION("L = { b }") {
+        NFA nfa = NFA::Builder({'b'}, 2)
+            .add_transition(0, 'b', 1)
+            .set_acceptance(1, true);
+
+        CHECK( !nfa.accepts({}) );
+        CHECK( !nfa.accepts({'a'}) );
+        CHECK( nfa.accepts({'b'}) );
+        CHECK( !nfa.accepts({'c'}) );
+        CHECK( !nfa.accepts({'z'}) );
+        CHECK( !nfa.accepts({'a', 'b'}) );
+    }
+
     SECTION("L = { x | x ∈ Σ }") {
         NFA nfa = NFA::Builder(2)
             .add_unknown_transition(0, 1)
@@ -241,7 +254,7 @@ TEST_CASE("Epsilon elimination doesn't change the NFA's behavior") {
 TEST_CASE("NFAs can be converted into DFAs") {
     SECTION("L = ∅") {
         DFA dfa = NFA::Builder(1)
-            .determinize();
+            .make_deterministic();
 
         CHECK( !dfa.accepts({}) );
         CHECK( !dfa.accepts({'a'}) );
@@ -252,7 +265,7 @@ TEST_CASE("NFAs can be converted into DFAs") {
     SECTION("L = { ε }") {
         DFA dfa = NFA::Builder(1)
             .set_acceptance(0, true)
-            .determinize();
+            .make_deterministic();
 
         CHECK( dfa.accepts({}) );
         CHECK( !dfa.accepts({'a'}) );
@@ -264,7 +277,7 @@ TEST_CASE("NFAs can be converted into DFAs") {
         DFA dfa = NFA::Builder({'a'}, 2)
             .add_transition(0, 'a', 1)
             .set_acceptance(1, true)
-            .determinize();
+            .make_deterministic();
 
         CHECK( !dfa.accepts({}) );
         CHECK( dfa.accepts({'a'}) );
@@ -278,7 +291,7 @@ TEST_CASE("NFAs can be converted into DFAs") {
         DFA dfa = NFA::Builder(2)
             .add_unknown_transition(0, 1)
             .set_acceptance(1, true)
-            .determinize();
+            .make_deterministic();
 
         CHECK( !dfa.accepts({}) );
         CHECK( dfa.accepts({'a'}) );
@@ -293,7 +306,7 @@ TEST_CASE("NFAs can be converted into DFAs") {
             .add_transition(1, 'a', 3)
             .add_transition(2, 'b', 4)
             .set_acceptance({3, 4}, true)
-            .determinize();
+            .make_deterministic();
 
         CHECK( !dfa.accepts({}) );
         CHECK( dfa.accepts({'a'}) );
@@ -311,7 +324,7 @@ TEST_CASE("NFAs can be converted into DFAs") {
             .add_epsilon_transition(1, 2)
             .add_transition(2, 'b', 3)
             .set_acceptance(3, true)
-            .determinize();
+            .make_deterministic();
 
         CHECK( !dfa.accepts({}) );
         CHECK( !dfa.accepts({'a'}) );
@@ -334,7 +347,7 @@ TEST_CASE("NFAs can be converted into DFAs") {
             .add_epsilon_transition(4, 0)
             .add_epsilon_transition(6, 0)
             .set_acceptance({0, 4, 6}, true)
-            .determinize();
+            .make_deterministic();
 
         CHECK( dfa.accepts({}) );
         CHECK( !dfa.accepts({'a'}) );

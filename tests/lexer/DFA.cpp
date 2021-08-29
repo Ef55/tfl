@@ -3,6 +3,7 @@
 #include "tfl/Automata.hpp"
 
 using DFA = tfl::DFA<char>;
+using NFA = tfl::NFA<char>;
 
 TEST_CASE("Basic DFAs can be built and used") {
     SECTION("L = ∅") {
@@ -182,5 +183,147 @@ TEST_CASE("DFA quirks") {
         CHECK( dfa.accepts({'a'}) );
         CHECK( dfa.accepts({'b'}) );
         CHECK( dfa.accepts({'a', 'b'}) );
+    }
+}
+
+TEST_CASE("DFAs can be converted into NFAs") {
+    SECTION("L = ∅") {
+        NFA nfa = DFA::Builder(1)
+            .set_unknown_transition(0, 0)
+            .make_nondeterministic();
+
+        CHECK( !nfa.accepts({}) );
+        CHECK( !nfa.accepts({'a'}) );
+        CHECK( !nfa.accepts({'b'}) );
+        CHECK( !nfa.accepts({'a', 'b'}) );
+    }
+
+    SECTION("L = { ε }") {
+        NFA nfa = DFA::Builder(2)
+            .set_unknown_transition(0, 1)
+            .set_unknown_transition(1, 1)
+            .set_acceptance(0, true)
+            .make_nondeterministic();
+
+        CHECK( nfa.accepts({}) );
+        CHECK( !nfa.accepts({'a'}) );
+        CHECK( !nfa.accepts({'b'}) );
+        CHECK( !nfa.accepts({'a', 'b'}) );
+    }
+
+    SECTION("L = { a }") {
+        NFA nfa = DFA::Builder({'a'}, 3)
+            .set_transition(0, 'a', 1)
+            .set_unknown_transition(0, 2)
+            .set_all_transitions(1, 2)
+            .set_all_transitions(2, 2)
+            .set_acceptance(1, true)
+            .make_nondeterministic();
+
+        CHECK( !nfa.accepts({}) );
+        CHECK( nfa.accepts({'a'}) );
+        CHECK( !nfa.accepts({'b'}) );
+        CHECK( !nfa.accepts({'c'}) );
+        CHECK( !nfa.accepts({'z'}) );
+        CHECK( !nfa.accepts({'a', 'b'}) );
+    }
+
+    SECTION("L = { x | x ∈ Σ }") {
+        NFA nfa = DFA::Builder(3)
+            .set_unknown_transition(0, 1)
+            .set_unknown_transition(1, 2)
+            .set_all_transitions(2, 2)
+            .set_acceptance(1, true)
+            .make_nondeterministic();
+
+        CHECK( !nfa.accepts({}) );
+        CHECK( nfa.accepts({'a'}) );
+        CHECK( nfa.accepts({'b'}) );
+        CHECK( nfa.accepts({'z'}) );
+        CHECK( !nfa.accepts({'a', 'b'}) );
+    }
+
+    SECTION("L = { a }^C") {
+        NFA nfa = DFA::Builder({'a'}, 3)
+            .set_transition(0, 'a', 1)
+            .set_unknown_transition(0, 2)
+            .set_all_transitions(1, 2)
+            .set_all_transitions(2, 2)
+            .set_acceptance({0, 2}, true)
+            .make_nondeterministic();
+
+        CHECK( nfa.accepts({}) );
+        CHECK( !nfa.accepts({'a'}) );
+        CHECK( nfa.accepts({'b'}) );
+        CHECK( nfa.accepts({'c'}) );
+        CHECK( nfa.accepts({'z'}) );
+        CHECK( nfa.accepts({'a', 'b'}) );
+    }
+
+    SECTION("L = { a, b }") {
+        NFA nfa = DFA::Builder({'a', 'b'}, 3)
+            .set_transitions(0, {{'a', 1}, {'b', 1}})
+            .set_unknown_transition(0, 2)
+            .set_all_transitions(1, 2)
+            .set_all_transitions(2, 2)
+            .set_acceptance(1, true)
+            .make_nondeterministic();
+
+        CHECK( !nfa.accepts({}) );
+        CHECK( nfa.accepts({'a'}) );
+        CHECK( nfa.accepts({'b'}) );
+        CHECK( !nfa.accepts({'z'}) );
+        CHECK( !nfa.accepts({'a', 'b'}) );
+        CHECK( !nfa.accepts({'z', 'b'}) );
+        CHECK( !nfa.accepts({'b', 'a'}) );
+        CHECK( !nfa.accepts({'z', 'z'}) );
+    }
+
+    SECTION("L = { ab }") {
+        NFA nfa = DFA::Builder({'a', 'b'}, 4)
+            .set_transitions(0, {{'a', 1}, {'b', 3}})
+            .set_unknown_transition(0, 3)
+            .set_transitions(1, {{'a', 3}, {'b', 2}})
+            .set_unknown_transition(1, 3)
+            .set_all_transitions(2, 3)
+            .set_all_transitions(3, 3)
+            .set_acceptance(2, true)
+            .make_nondeterministic();
+
+        CHECK( !nfa.accepts({}) );
+        CHECK( !nfa.accepts({'a'}) );
+        CHECK( !nfa.accepts({'b'}) );
+        CHECK( nfa.accepts({'a', 'b'}) );
+        CHECK( !nfa.accepts({'z', 'b'}) );
+        CHECK( !nfa.accepts({'a', 'z'}) );
+        CHECK( !nfa.accepts({'a', 'b', 'a'}) );
+        CHECK( !nfa.accepts({'z', 'b', 'a'}) );
+        CHECK( !nfa.accepts({'a', 'z', 'z'}) );
+    }
+
+    SECTION("L = Closure({ ab, c }, concatenation)") {
+        NFA nfa = DFA::Builder({'a', 'b', 'c'}, 4)
+            .set_transitions(0, {{'a', 1}, {'b', 3}, {'c', 2}})
+            .set_transitions(1, {{'a', 3}, {'b', 2}, {'c', 3}})
+            .set_transitions(2, {{'a', 1}, {'b', 3}, {'c', 2}})
+            .set_unknown_transition(0, 3)
+            .set_unknown_transition(1, 3)
+            .set_unknown_transition(2, 3)
+            .set_all_transitions(3, 3)
+            .set_acceptance({0, 2}, true)
+            .make_nondeterministic();
+
+        CHECK( nfa.accepts({}) );
+        CHECK( !nfa.accepts({'a'}) );
+        CHECK( !nfa.accepts({'b'}) );
+        CHECK( nfa.accepts({'c'}) );
+        CHECK( !nfa.accepts({'z'}) );
+        CHECK( nfa.accepts({'a', 'b'}) );
+        CHECK( nfa.accepts({'a', 'b', 'c'}) );
+        CHECK( !nfa.accepts({'a', 'b', 'z'}) );
+        CHECK( nfa.accepts({'a', 'b', 'a', 'b'}) );
+        CHECK( !nfa.accepts({'a', 'b', 'z', 'a', 'b'}) );
+        CHECK( !nfa.accepts({'c', 'a', 'b', 'a', 'c'}) );
+        CHECK( nfa.accepts({'c', 'a', 'b', 'a', 'b', 'c'}) );
     }
 }

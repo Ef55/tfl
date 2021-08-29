@@ -17,6 +17,10 @@ namespace tfl {
         using namespace std::ranges;
     }
 
+
+    template<typename T>
+    class NFA;
+
     template<typename T>
     class DFA final {
     public:
@@ -139,7 +143,7 @@ namespace tfl {
                 }
             }
             Builder(std::initializer_list<T> states = {}, StateIdx size = 0): Builder(views::all(states), size) {}
-            Builder(StateIdx size = 0): Builder(views::empty<T>, size) {}
+            Builder(StateIdx size): Builder(views::empty<T>, size) {}
 
             StateIdx state_count() const {
                 return _unknown_transitions.size();
@@ -156,9 +160,18 @@ namespace tfl {
                 }
             }
 
+            std::vector<std::optional<StateIdx>> const& unknown_transitions() const {
+                sanity();
+                return _unknown_transitions;
+            }
+
             std::vector<bool> const& accepting_states() const {
                 sanity();
                 return _accepting_states;
+            }
+
+            auto inputs() const {
+                return transform_view(_transitions, [](auto p){ return p.first; });
             }
 
             Builder& add_input(T const& input) {
@@ -187,6 +200,13 @@ namespace tfl {
                 check_state(state);
                 _accepting_states[state] = value;
                 sanity();
+                return *this;
+            }
+
+            Builder& complement() {
+                for(auto b: _accepting_states) {
+                    b = !b;
+                }
                 return *this;
             }
 
@@ -242,6 +262,21 @@ namespace tfl {
                 return *this;
             }
 
+            Builder& complete(StateIdx const& to) {
+                auto cr = [to](std::optional<StateIdx>& opt){
+                    if(!opt.has_value()) {
+                        opt = to;
+                    }
+                };
+
+                for(auto& p: _transitions) {
+                    for_each(p.second, cr);
+                }
+                for_each(_unknown_transitions, cr);
+
+                return *this;
+            }
+
             bool is_complete() const {
                 sanity();
                 return std::all_of(
@@ -291,6 +326,36 @@ namespace tfl {
 
             operator DFA() const {
                 return finalize();
+            }
+
+            NFA<T>::Builder make_nondeterministic() const {
+                typename NFA<T>::Builder builder(state_count());
+
+                for(auto p: _transitions) {
+                    builder.add_input(p.first);
+
+                    for(StateIdx i = 0; i < state_count(); ++i) {
+                        if(p.second[i].has_value()) {
+                            builder.add_transition(i, p.first, p.second[i].value());
+                        }
+                    }
+                }
+
+                for(StateIdx i = 0; i < state_count(); ++i) {
+                    if(_unknown_transitions[i].has_value()) {
+                        builder.add_unknown_transition(i, _unknown_transitions[i].value());
+                    }
+                }
+
+                for(StateIdx i = 0; i < state_count(); ++i) {
+                    builder.set_acceptance(i, _accepting_states[i]);
+                }
+
+                return builder;
+            }
+
+            operator NFA<T>::Builder() const {
+                return make_nondeterministic();
             }
         };
     };
@@ -438,18 +503,18 @@ namespace tfl {
 
         public:
             template<range R>
-            Builder(R&& inputs, StateIdx size = 1): 
+            Builder(R&& inputs, StateIdx size = 0): 
             _transitions(), 
             _epsilon_transitions(size, StateIndices{}), 
             _unknown_transitions(size, StateIndices{}), 
             _accepting_states(size, 0) 
             {
-                for(auto& input: inputs) {
+                for(auto input: inputs) {
                     add_input(input);
                 }
             }
             Builder(std::initializer_list<T> states = {}, StateIdx size = 0): Builder(views::all(states), size) {}
-            Builder(StateIdx size = 0): Builder(views::empty<T>, size) {}
+            Builder(StateIdx size): Builder(views::empty<T>, size) {}
 
             StateIdx state_count() const {
                 return _unknown_transitions.size();
@@ -469,6 +534,10 @@ namespace tfl {
             std::vector<bool> const& accepting_states() const {
                 sanity();
                 return _accepting_states;
+            }
+
+            auto inputs() const {
+                return transform_view(_transitions, [](auto p){ return p.first; });
             }
 
             StateIndices epsilon_closure(StateIdx state) const {
@@ -502,17 +571,22 @@ namespace tfl {
 
             std::pair<Builder&, StateIdx> add_state(StateIndices const& to = {}, bool accepting = false) {
                 sanity();
-                for(auto& it: _transitions) {
-                    it->second.emplace_back(to);
+                for(auto p: _transitions) {
+                    p.second.emplace_back(to);
                 }
                 _unknown_transitions.emplace_back(to);
+                _epsilon_transitions.emplace_back();
                 _accepting_states.push_back(accepting);
                 sanity();
                 return { *this, state_count()-1 };
             }
 
             std::pair<Builder&, StateIdx> add_state(StateIdx const& to, bool accepting = false) {
-                return add_state({to}, accepting);
+                return add_state(StateIndices{to}, accepting);
+            }
+
+            std::pair<Builder&, StateIdx> add_state(bool accepting) {
+                return add_state(StateIndices{}, accepting);
             }
 
             Builder& set_acceptance(StateIdx const& state, bool value) {
@@ -611,10 +685,39 @@ namespace tfl {
                         add_unknown_transitions(i, _unknown_transitions[j]);
 
                         _epsilon_transitions[i].clear();
+
+                        if(_accepting_states[j]) {
+                            _accepting_states[i] = true;
+                        }
                     }
                 }
                 sanity();
                 return *this;
+            }
+
+            std::pair<Builder&, StateIdx> meld(Builder const& that) {
+                sanity();
+                for(auto input: that.inputs()) {
+                    add_input(input);
+                }
+
+                StateIdx offset = state_count();
+                auto tr = [offset](std::set<StateIdx> indices){ 
+                    std::set<StateIdx> result;
+                    transform(indices, std::inserter(result, result.end()), [offset](StateIdx idx){ return idx + offset; }); 
+                    return result;
+                };
+                
+                for(auto& p: _transitions) {
+                    transform(that.transitions(p.first), std::back_inserter(p.second), tr);
+                }
+
+                transform(that._unknown_transitions, std::back_inserter(_unknown_transitions), tr);
+                transform(that._epsilon_transitions, std::back_inserter(_epsilon_transitions), tr);
+                copy(that._accepting_states, std::back_inserter(_accepting_states));
+
+                sanity();
+                return { *this, offset };
             }
 
             NFA finalize() const {
@@ -635,7 +738,7 @@ namespace tfl {
                 return finalize();
             }
 
-            DFA<T>::Builder determinize() {
+            DFA<T>::Builder make_deterministic() {
                 epsilon_elimination();
 
                 auto inputs = transform_view(_transitions, [](auto p){ return p.first; });
@@ -676,12 +779,14 @@ namespace tfl {
                     return false;
                 };
                 
-                std::vector<bool> start(state_count(), false);
+                std::vector<bool> trash(state_count(), false);
+                std::vector<bool> start(trash);
                 start[0] = true;
 
                 typename DFA<T>::Builder builder(inputs);
                 std::unordered_map<std::vector<bool>, typename DFA<T>::StateIdx> indices;
                 indices.emplace(start, builder.add_state().second);
+                indices.emplace(trash, builder.add_state().second);
 
                 std::queue<std::vector<bool>> queue;
                 queue.push(start);
@@ -719,12 +824,18 @@ namespace tfl {
                     }
                 }
 
+                builder.complete(indices[trash]);
+
                 return builder;
             }
 
-            DFA<T>::Builder determinize() const {
-                return Builder(*this).determinize();
+            DFA<T>::Builder make_deterministic() const {
+                return Builder(*this).make_deterministic();
             }
+
+            operator DFA<T>::Builder() const {
+                return make_deterministic();
+            } 
         };
 
     };
