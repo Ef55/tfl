@@ -77,7 +77,7 @@ TEST_CASE("Simple usecase") {
     auto space = Regexes::any_of({'\t', '\n', '\v', '\f', '\r', ' '});
 
 
-    auto lexer = tfl::Lexer<char, Word>::make({
+    auto lexer = tfl::Lexer<char, Word>::make_derivation_lexer({
         {Regexes::any_of({
             Regexes::word({'i', 'f'}),
             Regexes::word({'t', 'h', 'e', 'n'}),
@@ -93,7 +93,7 @@ TEST_CASE("Simple usecase") {
         {Regexes::literal('/') - Regexes::literal('/') - *(digit | alpha | Regexes::literal(' ')) - eol, [](auto w){ return Word(SpecialSymbol::COMMENT); }},
     });
 
-    auto integer_lexer = tfl::Lexer<char, int, std::string>::make({
+    auto integer_lexer = tfl::Lexer<char, int, std::string>::make_derivation_lexer({
         {*digit, [](auto str){ return std::stoi(str); }}
     }).map([](auto e){ return e.value(); });
 

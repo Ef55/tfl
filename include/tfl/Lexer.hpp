@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Regex.hpp"
+#include "Automata.hpp"
 
 #include <vector>
 #include <functional>
@@ -9,6 +10,7 @@
 #include <type_traits>
 #include <stdexcept>
 #include <concepts>
+#include <ranges>
 
 #include "Concepts.hpp"
 
@@ -20,7 +22,7 @@ namespace tfl {
     };
 
     template<typename T, typename, container<T>> class Lexer;
-    template<typename T, typename, container<T>> class Rule;
+    template<typename T, typename, class> class Rule;
 
     template<typename T>
     class Positioned {
@@ -68,49 +70,48 @@ namespace tfl {
             virtual std::vector<R> apply (std::vector<T>&) const = 0;
         };
 
-        template<typename T, typename R, container<T> Word = std::vector<T>>
-        class SimpleDerivationLexer final : public LexerBase<T, Positioned<R>, Word> {
-            std::vector<Rule<T, R, Word>> _rules;
-            Regex<T> _nl;
+        template<typename T, class M, typename R, container<T> Word = std::vector<T>>
+        class SimpleLexerBase : public LexerBase<T, Positioned<R>, Word> {
 
-            template<
-                std::input_iterator It, 
-                typename I = typename std::iterator_traits<It>::difference_type, 
-                class Res = std::optional<I>
-            >
-            static Res maximal(Regex<T> r, It beg, It end) {
-                Res max = Res();
-                I idx = 0;
+            std::optional<typename std::vector<T>::difference_type> maximal(M matcher, std::vector<T>::iterator beg, std::vector<T>::iterator end) const {
+                std::optional<typename std::vector<T>::difference_type> max = std::nullopt;
+                typename std::vector<T>::difference_type idx = 0;
                 for(; beg != end; ++beg) {
                     ++idx;
-                    r = derive(*beg, r);
-                    if(is_nullable(r)) {
-                        max = Res(idx);
+
+                    auto p = match(matcher, *beg);
+                    matcher = p.first;
+                    if(p.second) {
+                        max = idx;
                     }
                 }
 
                 return max;
             }
 
+        protected:
+            virtual std::vector<Rule<M, R, Word>> const& rules() const = 0;
+            virtual M const& newline() const = 0;
+            virtual std::pair<M, bool> match(M const& matcher, T const& value) const = 0;
+
         public:
 
-            SimpleDerivationLexer(std::initializer_list<Rule<T, R, Word>> rules, Regex<T> newline = Regex<T>::empty()): _rules(rules), _nl(newline) {}
-
-            virtual std::vector<Positioned<R>> apply (std::vector<T>& input) const override {
+            virtual std::vector<Positioned<R>> apply(std::vector<T>& input) const final override {
                 std::vector<Positioned<R>> output;
                 auto cur = input.begin();
 
                 size_t col = 1;
                 size_t line = 1;
 
-                std::vector current(_rules.size(), std::optional<size_t>());
+                std::vector<Rule<M, R, Word>> const& rulz = rules();
+                M const& nl = newline();
+                std::vector current(rulz.size(), std::optional<size_t>());
 
                 while(cur != input.end()) {
-                    std::transform(
-                        _rules.begin(), 
-                        _rules.end(), 
+                    std::ranges::transform(
+                        rulz,
                         current.begin(), 
-                        [&cur, &input](auto p){ return maximal(p.regex(), cur, input.end()); }
+                        [this, &cur, &input](auto p){ return maximal(p.matcher(), cur, input.end()); }
                     );
 
                     auto r = std::max_element(
@@ -133,14 +134,14 @@ namespace tfl {
                         throw LexingException("No rule applicable");
                     }
 
-                    Rule<T, R, Word> p = _rules[std::distance(current.begin(), r)];
+                    auto p = rulz[std::distance(current.begin(), r)];
                     auto l = r->value();
                     auto next = cur; 
                     std::advance(next, l);
                     output.push_back( Positioned<R>(line, col, p.map(cur, next)) );
 
                     col += l;
-                    if(maximal(_nl, cur, input.end()).has_value()) {
+                    if(maximal(nl, cur, input.end()).has_value()) {
                         col = 1;
                         line += 1;
                     }
@@ -151,7 +152,29 @@ namespace tfl {
                 
                 return output;
             }
+        };
+        
+        template<typename T, typename R, container<T> Word = std::vector<T>>
+        class SimpleDerivationLexer final : public SimpleLexerBase<T, Regex<T>, R, Word> {
+            std::vector<Rule<Regex<T>, R, Word>> _rules;
+            Regex<T> _nl;
 
+        protected:
+            std::vector<Rule<Regex<T>, R, Word>> const& rules() const override {
+                return _rules;
+            }
+
+            Regex<T> const& newline() const override {
+                return _nl;
+            }
+
+            std::pair<Regex<T>, bool> match(Regex<T> const& regex, T const& value) const {
+                Regex<T> d = derive(value, regex);
+                return {d, is_nullable(d)};
+            }
+
+        public:
+            SimpleDerivationLexer(std::initializer_list<Rule<Regex<T>, R, Word>> rules, Regex<T> newline = Regex<T>::empty()): _rules(rules), _nl(newline) {}
         };
 
         template<typename T, typename R, typename U, container<T> Word = std::vector<T>>
@@ -189,12 +212,12 @@ namespace tfl {
         };
     };
 
-    template<typename T, typename R, container<T> Word = std::vector<T>>
+    template<typename M, typename R, class Word>
     class Rule final {
-        template<typename, typename, container<T>> friend class LexerImpl::SimpleDerivationLexer;
+        template<typename T, typename, typename, container<T>> friend class LexerImpl::SimpleLexerBase;
         using Map = std::function<R(Word)>;
 
-        Regex<T> _regex;
+        M _matcher;
         Map _map;
 
         template<std::input_iterator It>
@@ -203,13 +226,13 @@ namespace tfl {
             return _map(input);
         }
 
-        Regex<T> regex() const {
-            return _regex;
+        M matcher() const {
+            return _matcher;
         }
 
     public:
         template<std::invocable<Word> F>
-        Rule(Regex<T> regex, F map): _regex(regex), _map(map) {}
+        Rule(M const& matcher, F map): _matcher(matcher), _map(map) {}
     };
 
     template<typename T, typename R, container<T> Word = std::vector<T>>
@@ -221,11 +244,12 @@ namespace tfl {
 
     public:
 
-        static Lexer<T, Positioned<R>, Word> make_derivation_lexer(std::initializer_list<Rule<T, R, Word>> rules, Regex<T> newline = Regex<T>::empty()) {
+        static Lexer<T, Positioned<R>, Word> make_derivation_lexer(std::initializer_list<Rule<Regex<T>, R, Word>> rules, Regex<T> newline = Regex<T>::empty()) {
             return Lexer<T, Positioned<R>, Word>(new LexerImpl::SimpleDerivationLexer<T, R, Word>(rules, newline));
         }
 
-        static Lexer<T, Positioned<R>, Word> make(std::initializer_list<Rule<T, R, Word>> rules, Regex<T> newline = Regex<T>::empty()) {
+        [[deprecated]]
+        static Lexer<T, Positioned<R>, Word> make(std::initializer_list<Rule<Regex<T>, R, Word>> rules, Regex<T> newline = Regex<T>::empty()) {
             return make_derivation_lexer(rules, newline);
         }
 
