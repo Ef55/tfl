@@ -3,6 +3,9 @@ input=
 test:
 	cmake --build build --target Tests && build/bin/Tests ${input}
 
+benchmark:
+	cmake --build build --target Benchmarks && build/bin/Benchmarks ${input}
+
 calculator:
 	cmake --build build --target Calculator && cd examples/calculator && ../../build/bin/Calculator ${input}
 
