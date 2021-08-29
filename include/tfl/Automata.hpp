@@ -106,21 +106,6 @@ namespace tfl {
             std::vector<OptStateIdx> _unknown_transitions;
             std::vector<bool> _accepting_states;
 
-            void sanity() const {
-                auto s = state_count();
-                auto check = [&s](auto& ls, std::string const& name){ 
-                    if(ls.size() != s) {
-                        throw std::invalid_argument("Table size mismatch: " + name + '.');
-                    }
-                };
-
-                for(auto p: _transitions) {
-                    check(p.second, Stringify<T>{}(p.first));
-                }
-                check(_unknown_transitions, "unknown transitions");
-                check(_accepting_states, "accepting states");
-            }
-
             StateIdx const& check_state(StateIdx const& state) const {
                 if(state >= state_count()) {
                     throw std::invalid_argument("Invalid state: " + std::to_string(state));
@@ -150,7 +135,6 @@ namespace tfl {
             }
 
             std::vector<std::optional<StateIdx>> const& transitions(T const& value) const {
-                sanity();
                 auto it =  _transitions.find(value);
                 if(it != _transitions.cend()) {
                     return it->second;
@@ -161,12 +145,10 @@ namespace tfl {
             }
 
             std::vector<std::optional<StateIdx>> const& unknown_transitions() const {
-                sanity();
                 return _unknown_transitions;
             }
 
             std::vector<bool> const& accepting_states() const {
-                sanity();
                 return _accepting_states;
             }
 
@@ -175,31 +157,25 @@ namespace tfl {
             }
 
             Builder& add_input(T const& input) {
-                sanity();
                 _transitions.insert(std::pair{
                     input, 
                     _unknown_transitions
                 });
-                sanity();
                 return *this;
             }
 
             std::pair<Builder&, StateIdx> add_state(std::optional<StateIdx> const& to = std::nullopt, bool accepting = false) {
-                sanity();
                 for(auto& it: _transitions) {
                     it.second.emplace_back(to);
                 }
                 _unknown_transitions.emplace_back(to);
                 _accepting_states.push_back(accepting);
-                sanity();
                 return { *this, state_count()-1 };
             }
 
             Builder& set_acceptance(StateIdx const& state, bool value) {
-                sanity();
                 check_state(state);
                 _accepting_states[state] = value;
-                sanity();
                 return *this;
             }
 
@@ -212,12 +188,10 @@ namespace tfl {
 
             template<range R>
             Builder& set_acceptance(R&& states, bool value) {
-                sanity();
                 for(auto state: states) {
                     check_state(state);
                     _accepting_states[state] = value;
                 }
-                sanity();
                 return *this;
             }
 
@@ -226,11 +200,9 @@ namespace tfl {
             }
 
             Builder& set_transition(StateIdx const& state, T const& input, StateIdx const& to) {
-                sanity();
                 check_state(state);
                 check_input(input);
                 _transitions[input][state] = to;
-                sanity();
                 return *this;
             }
 
@@ -247,10 +219,8 @@ namespace tfl {
             }
 
             Builder& set_unknown_transition(StateIdx const& state, StateIdx const& to) {
-                sanity();
                 check_state(state);
                 _unknown_transitions[state] = to;
-                sanity();
                 return *this;
             }
 
@@ -278,7 +248,6 @@ namespace tfl {
             }
 
             bool is_complete() const {
-                sanity();
                 return std::all_of(
                         _transitions.cbegin(), _transitions.cend(),
                         [](auto p) {
@@ -471,22 +440,6 @@ namespace tfl {
             std::vector<StateIndices> _unknown_transitions;
             std::vector<bool> _accepting_states;
 
-            void sanity() const {
-                auto s = state_count();
-                auto check = [&s](auto& ls, std::string const& name){ 
-                    if(ls.size() != s) {
-                        throw std::invalid_argument("Table size mismatch: " + name + '.');
-                    }
-                };
-
-                for(auto p: _transitions) {
-                    check(p.second, Stringify<T>{}(p.first));
-                }
-                check(_epsilon_transitions, "epsilon transitions");
-                check(_unknown_transitions, "unknown transitions");
-                check(_accepting_states, "accepting states");
-            }
-
             StateIdx const& check_state(StateIdx const& state) const {
                 if(state >= state_count()) {
                     throw std::invalid_argument("Invalid state: " + std::to_string(state));
@@ -521,7 +474,6 @@ namespace tfl {
             }
 
             std::vector<StateIndices> const& transitions(T const& value) const {
-                sanity();
                 auto it =  _transitions.find(value);
                 if(it != _transitions.cend()) {
                     return it->second;
@@ -532,7 +484,6 @@ namespace tfl {
             }
 
             std::vector<bool> const& accepting_states() const {
-                sanity();
                 return _accepting_states;
             }
 
@@ -560,24 +511,20 @@ namespace tfl {
             }
 
             Builder& add_input(T const& input) {
-                sanity();
                 _transitions.insert(std::pair{
                     input, 
                     _unknown_transitions
                 });
-                sanity();
                 return *this;
             }
 
             std::pair<Builder&, StateIdx> add_state(StateIndices const& to = {}, bool accepting = false) {
-                sanity();
                 for(auto p: _transitions) {
                     p.second.emplace_back(to);
                 }
                 _unknown_transitions.emplace_back(to);
                 _epsilon_transitions.emplace_back();
                 _accepting_states.push_back(accepting);
-                sanity();
                 return { *this, state_count()-1 };
             }
 
@@ -590,21 +537,17 @@ namespace tfl {
             }
 
             Builder& set_acceptance(StateIdx const& state, bool value) {
-                sanity();
                 check_state(state);
                 _accepting_states[state] = value;
-                sanity();
                 return *this;
             }
 
             template<range R>
             Builder& set_acceptance(R&& states, bool value) {
-                sanity();
                 for(auto state: states) {
                     check_state(state);
                     _accepting_states[state] = value;
                 }
-                sanity();
                 return *this;
             }
 
@@ -613,30 +556,24 @@ namespace tfl {
             }
 
             Builder& add_transition(StateIdx const& state, T const& input, StateIdx const& to) {
-                sanity();
                 check_state(state);
                 check_input(input);
                 _transitions[input][state].insert(to);
-                sanity();
                 return *this;
             }
 
             template<range R>
             Builder& add_transitions(StateIdx const& state, T const& input, R&& to) {
-                sanity();
                 check_state(state);
                 check_input(input);
                 _transitions[input][state].insert(to.begin(), to.end());
-                sanity();
                 return *this;
             }
 
             template<range R>
             Builder& add_epsilon_transitions(StateIdx const& state, R&& to) {
-                sanity();
                 check_state(state);
                 _epsilon_transitions[state].insert(to.begin(), to.end());
-                sanity();
                 return *this;
             }
 
@@ -645,19 +582,15 @@ namespace tfl {
             }
 
             Builder& add_epsilon_transition(StateIdx const& state, StateIdx to) {
-                sanity();
                 check_state(state);
                 _epsilon_transitions[state].insert(to);
-                sanity();
                 return *this;
             }
 
             template<range R>
             Builder& add_unknown_transitions(StateIdx const& state, R&& to) {
-                sanity();
                 check_state(state);
                 _unknown_transitions[state].insert(to.begin(), to.end());
-                sanity();
                 return *this;
             }
 
@@ -666,15 +599,12 @@ namespace tfl {
             }
 
             Builder& add_unknown_transition(StateIdx const& state, StateIdx to) {
-                sanity();
                 check_state(state);
                 _unknown_transitions[state].insert(to);
-                sanity();
                 return *this;
             }
 
             Builder& epsilon_elimination() {
-                sanity();
                 for(StateIdx i = 0; i < state_count(); ++i) {
                     for(StateIdx j: epsilon_closure(i)) {
 
@@ -691,12 +621,10 @@ namespace tfl {
                         }
                     }
                 }
-                sanity();
                 return *this;
             }
 
             std::pair<Builder&, StateIdx> meld(Builder const& that) {
-                sanity();
                 for(auto input: that.inputs()) {
                     add_input(input);
                 }
@@ -716,12 +644,10 @@ namespace tfl {
                 transform(that._epsilon_transitions, std::back_inserter(_epsilon_transitions), tr);
                 copy(that._accepting_states, std::back_inserter(_accepting_states));
 
-                sanity();
                 return { *this, offset };
             }
 
             NFA finalize() const {
-                sanity();
                 if(state_count() == 0) {
                     throw std::invalid_argument("A NFA must have at least one state.");
                 }

@@ -39,10 +39,6 @@ namespace tfl {
         auto l = builder.meld(left).second;
         auto r = builder.meld(right).second;
 
-        if(l != 1 || r != left.state_count()+1) {
-            throw std::logic_error("Implementation error");
-        }
-
         builder
             .add_epsilon_transition(0, l)
             .add_epsilon_transition(0, r);
@@ -54,10 +50,6 @@ namespace tfl {
     NFA<T>::Builder sequence(typename NFA<T>::Builder const& left, typename NFA<T>::Builder const& right) {
         typename NFA<T>::Builder builder(left);
         auto r = builder.meld(right).second;
-
-        if(r != left.state_count()) {
-            throw std::logic_error("Implementation error");
-        }
 
         for(typename NFA<T>::StateIdx i = 0; i < r; ++i) {
             if(builder.accepting_states()[i]) {
