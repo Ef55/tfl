@@ -2,6 +2,7 @@
 
 #include <string>
 #include <set>
+#include <ranges>
 
 #include "Stringify.hpp"
 #include "Concepts.hpp"
@@ -95,7 +96,6 @@ namespace tfl {
             class Printer final: public Base<T, std::pair<std::string, Precedence>> {
                 using Result = std::pair<std::string, Precedence>;
                 using Base<T, Result>::rec;
-                static constexpr Stringify stringify{};
 
 
                 inline static std::string paren_if_gtr(Result const& r, Precedence pri) {
@@ -118,7 +118,7 @@ namespace tfl {
                 Result empty() const { return {"∅", Precedence::ATOM}; }
                 Result epsilon() const { return {"ε", Precedence::ATOM}; }
                 Result alphabet() const { return {"Σ", Precedence::ATOM}; }
-                Result literal(T const& lit) const { return {stringify(lit), Precedence::ATOM}; }
+                Result literal(T const& lit) const { return {Stringify::convert(lit), Precedence::ATOM}; }
                 Result disjunction(Regex<T> const& left, Regex<T> const& right) const { 
                     return binop_leftassoc(" | ", rec(left), rec(right), Precedence::DISJ);
                 }
@@ -248,7 +248,7 @@ namespace tfl {
         }
 
         
-    };
+    }
 
     template<typename T>
     inline bool is_empty(Regex<T> const& regex) {
@@ -295,10 +295,14 @@ namespace tfl {
         return regex.match(matchers::Deriver<T, Eq>{x});
     }
 
-    template<typename T, std::input_iterator It, class Eq = std::equal_to<T>>
-    Regex<T> derive(It beg, It end, Regex<T> const& regex) {
+    template<typename T, std::ranges::range R, class Eq = std::equal_to<T>>
+    Regex<T> derive(R&& r, Regex<T> const& regex) {
         auto res = regex;
-        for(; beg != end; ++beg) {
+        for(
+            auto beg = r.begin(), end = r.end(); 
+            beg != end; 
+            ++beg
+        ) {
             res = derive<T, Eq>(*beg, res);
         }
 

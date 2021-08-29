@@ -58,7 +58,7 @@ namespace tfl {
 
             check(_accepting_states, "accepting states");
             for(auto p: _transitions) {
-                check(p.second, Stringify<T>{}(p.first));
+                check(p.second, Stringify<T>::convert(p.first));
             }
         }
 
@@ -115,7 +115,7 @@ namespace tfl {
 
             T const& check_input(T const& input) const {
                 if(!_transitions.contains(input)) {
-                    throw std::invalid_argument("Invalid input: " + Stringify<T>{}(input));
+                    throw std::invalid_argument("Invalid input: " + Stringify<T>::convert(input));
                 }
                 return input;
             }
@@ -357,7 +357,7 @@ namespace tfl {
             check(_accepting_states, "accepting states");
             check(_epsilon_transitions, "epsilon");
             for(auto p: _transitions) {
-                check(p.second, Stringify<T>{}(p.first));
+                check(p.second, Stringify<T>::convert(p.first));
             }
         }
 
@@ -449,7 +449,7 @@ namespace tfl {
 
             T const& check_input(T const& input) const {
                 if(!_transitions.contains(input)) {
-                    throw std::invalid_argument("Invalid input: " + Stringify<T>{}(input));
+                    throw std::invalid_argument("Invalid input: " + Stringify<T>::convert(input));
                 }
                 return input;
             }

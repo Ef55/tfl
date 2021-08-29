@@ -9,10 +9,10 @@ using Regexes = tfl::Regexes<char>;
 
 struct RegexDerivation {
     static bool accepts(Regex const& r, std::initializer_list<char> ls) {
-        return tfl::is_nullable(tfl::derive(ls.begin(), ls.end(), r));
+        return tfl::is_nullable(tfl::derive(ls, r));
     }
     static bool accepts_v(Regex const& r, std::vector<char> ls) {
-        return tfl::is_nullable(tfl::derive(ls.cbegin(), ls.cend(), r));
+        return tfl::is_nullable(tfl::derive(ls, r));
     }
 };
 
