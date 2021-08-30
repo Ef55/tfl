@@ -38,7 +38,7 @@ void test_lexer_line_positioned(tfl::Lexer<char, tfl::Positioned<R>> lexer, char
     SECTION(name) {
 
         std::string input(cinput);
-        auto result = lexer(input.begin(), input.end());
+        auto result = lexer(input);
 
         CHECK( result.size() == expected.size() );
 
@@ -54,7 +54,7 @@ void test_lexer(tfl::Lexer<char, R> lexer, char const* name, char const* cinput,
     SECTION(name) {
 
         std::string input(cinput);
-        auto result = lexer(input.begin(), input.end());
+        auto result = lexer(input);
 
         CHECK( result.size() == expected.size() );
 

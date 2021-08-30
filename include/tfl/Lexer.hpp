@@ -73,27 +73,10 @@ namespace tfl {
 
         template<typename T, class M, typename R, container<T> Word = std::vector<T>>
         class SimpleLexerBase : public LexerBase<T, Positioned<R>, Word> {
-
-            std::optional<typename std::vector<T>::difference_type> maximal(M matcher, std::vector<T>::iterator beg, std::vector<T>::iterator end) const {
-                std::optional<typename std::vector<T>::difference_type> max = std::nullopt;
-                typename std::vector<T>::difference_type idx = 0;
-                for(; beg != end; ++beg) {
-                    ++idx;
-
-                    auto p = match(matcher, *beg);
-                    matcher = p.first;
-                    if(p.second) {
-                        max = idx;
-                    }
-                }
-
-                return max;
-            }
-
         protected:
             virtual std::vector<Rule<M, R, Word>> const& rules() const = 0;
             virtual M const& newline() const = 0;
-            virtual std::pair<M, bool> match(M const& matcher, T const& value) const = 0;
+            virtual std::optional<typename std::vector<T>::difference_type> maximal(M matcher, std::vector<T>::iterator beg, std::vector<T>::iterator end) const = 0;
 
         public:
 
@@ -169,42 +152,69 @@ namespace tfl {
                 return _nl;
             }
 
-            std::pair<Regex<T>, bool> match(Regex<T> const& regex, T const& value) const {
-                Regex<T> d = derive(value, regex);
-                return {d, is_nullable(d)};
+            std::optional<typename std::vector<T>::difference_type> maximal(Regex<T> regex, std::vector<T>::iterator beg, std::vector<T>::iterator end) const override {
+                std::optional<typename std::vector<T>::difference_type> max = std::nullopt;
+                typename std::vector<T>::difference_type idx = 0;
+                for(; beg != end; ++beg) {
+                    ++idx;
+
+                    regex = derive(*beg, regex);
+                    if(is_nullable(regex)) {
+                        max = idx;
+                    }
+                }
+
+                return max;
             }
 
         public:
-            SimpleDerivationLexer(std::initializer_list<Rule<Regex<T>, R, Word>> rules, Regex<T> newline = Regex<T>::empty()): _rules(rules), _nl(newline) {}
+            template<std::ranges::range Range>
+            SimpleDerivationLexer(Range&& rules, Regex<T> newline = Regex<T>::empty()): _rules(std::forward<Range>(rules)), _nl(newline) {}
         };
 
         template<typename T, typename R, container<T> Word = std::vector<T>>
-        class SimpleDFALexer final : public SimpleLexerBase<T, std::pair<DFA<T>, std::size_t>, R, Word> {
-            std::vector<Rule<std::pair<DFA<T>, std::size_t>, R, Word>> _rules;
-            std::pair<DFA<T>, std::size_t> _nl;
+        class SimpleDFALexer final : public SimpleLexerBase<T, DFA<T>, R, Word> {
+            std::vector<Rule<DFA<T>, R, Word>> _rules;
+            DFA<T> _nl;
 
         protected:
-            std::vector<Rule<std::pair<DFA<T>, std::size_t>, R, Word>> const& rules() const override {
+            std::vector<Rule<DFA<T>, R, Word>> const& rules() const override {
                 return _rules;
             }
 
-            std::pair<DFA<T>, std::size_t> const& newline() const override {
+            DFA<T> const& newline() const override {
                 return _nl;
             }
 
-            std::pair<std::pair<DFA<T>, std::size_t>, bool> match(std::pair<DFA<T>, std::size_t> const& matcher, T const& value) const {
-                auto p = matcher.first.step(matcher.second, value);
-                return {{matcher.first, p.first}, p.second};
+            std::optional<typename std::vector<T>::difference_type> maximal(DFA<T> dfa, std::vector<T>::iterator beg, std::vector<T>::iterator end) const override {
+                std::optional<typename std::vector<T>::difference_type> max = std::nullopt;
+                typename std::vector<T>::difference_type idx = 0;
+
+                typename DFA<T>::StateIdx state = 0;
+
+                for(; beg != end; ++beg) {
+                    ++idx;
+
+                    auto p = dfa.step(state, *beg);
+                    state = p.first;
+
+                    if(p.second) {
+                        max = idx;
+                    }
+                }
+
+                return max;
             }
 
         public:
-            SimpleDFALexer(std::initializer_list<Rule<Regex<T>, R, Word>> rules, Regex<T> newline = Regex<T>::empty()): 
+            template<std::ranges::range Range>
+            SimpleDFALexer(Range&& rules, Regex<T> newline = Regex<T>::empty()): 
             _rules(), 
-            _nl{make_dfa(newline), 0} 
+            _nl{make_dfa(newline)} 
             {
                 for(auto& rule: rules) {
                     _rules.emplace_back(
-                        std::pair{make_dfa(rule.matcher()), 0},
+                        make_dfa(rule.matcher()),
                         rule._map
                     );
                 }
@@ -279,26 +289,36 @@ namespace tfl {
 
     public:
 
+        template<std::ranges::range Range> requires std::same_as<std::ranges::range_value_t<Range>, Rule<Regex<T>, R, Word>>
+        static Lexer<T, Positioned<R>, Word> make_derivation_lexer(Range&& rules, Regex<T> newline = Regex<T>::empty()) {
+            return Lexer<T, Positioned<R>, Word>(new LexerImpl::SimpleDerivationLexer<T, R, Word>(std::forward<Range>(rules), newline));
+        }
+
+        template<std::ranges::range Range> requires std::same_as<std::ranges::range_value_t<Range>, Rule<Regex<T>, R, Word>>
+        static Lexer<T, Positioned<R>, Word> make_dfa_lexer(Range rules, Regex<T> newline = Regex<T>::empty()) {
+            return Lexer<T, Positioned<R>, Word>(new LexerImpl::SimpleDFALexer<T, R, Word>(std::forward<Range>(rules), newline));
+        }
+
         static Lexer<T, Positioned<R>, Word> make_derivation_lexer(std::initializer_list<Rule<Regex<T>, R, Word>> rules, Regex<T> newline = Regex<T>::empty()) {
-            return Lexer<T, Positioned<R>, Word>(new LexerImpl::SimpleDerivationLexer<T, R, Word>(rules, newline));
+            return make_derivation_lexer<std::initializer_list<Rule<Regex<T>, R, Word>>&>(rules, newline);
         }
 
         static Lexer<T, Positioned<R>, Word> make_dfa_lexer(std::initializer_list<Rule<Regex<T>, R, Word>> rules, Regex<T> newline = Regex<T>::empty()) {
-            return Lexer<T, Positioned<R>, Word>(new LexerImpl::SimpleDFALexer<T, R, Word>(rules, newline));
+            return make_dfa_lexer<std::initializer_list<Rule<Regex<T>, R, Word>>&>(rules, newline);
         }
 
         [[deprecated]]
         static Lexer<T, Positioned<R>, Word> make(std::initializer_list<Rule<Regex<T>, R, Word>> rules, Regex<T> newline = Regex<T>::empty()) {
-            return make_derivation_lexer(rules, newline);
+            return make_dfa_lexer(rules, newline);
         }
 
-        std::vector<R> operator() (std::vector<T>& input) const {
+        std::vector<R> operator()(std::vector<T>& input) const {
             return _lexer->apply(input);
         }
 
-        template<std::input_iterator It>
-        std::vector<R> operator() (It beg, It end) const {
-            std::vector<T> input(beg, end);
+        template<std::ranges::range Range>
+        std::vector<R> operator()(Range&& range) const {
+            std::vector input(range.begin(), range.end());
             return _lexer->apply(input);
         }
 
