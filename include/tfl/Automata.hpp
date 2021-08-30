@@ -99,6 +99,11 @@ namespace tfl {
             return accepts<std::initializer_list<T>&>(ls);
         }
 
+        std::pair<StateIdx, bool> step(T const& value, StateIdx start) const {
+            StateIdx end = transition(value, start);
+            return {end, accepting_states()[end]};
+        }
+
         class Builder final {
             using OptStateIdx = std::optional<StateIdx>;
 

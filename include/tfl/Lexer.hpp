@@ -2,6 +2,7 @@
 
 #include "Regex.hpp"
 #include "Automata.hpp"
+#include "AutomataOps.hpp"
 
 #include <vector>
 #include <functional>
@@ -177,6 +178,39 @@ namespace tfl {
             SimpleDerivationLexer(std::initializer_list<Rule<Regex<T>, R, Word>> rules, Regex<T> newline = Regex<T>::empty()): _rules(rules), _nl(newline) {}
         };
 
+        template<typename T, typename R, container<T> Word = std::vector<T>>
+        class SimpleDFALexer final : public SimpleLexerBase<T, std::pair<DFA<T>, std::size_t>, R, Word> {
+            std::vector<Rule<std::pair<DFA<T>, std::size_t>, R, Word>> _rules;
+            std::pair<DFA<T>, std::size_t> _nl;
+
+        protected:
+            std::vector<Rule<std::pair<DFA<T>, std::size_t>, R, Word>> const& rules() const override {
+                return _rules;
+            }
+
+            std::pair<DFA<T>, std::size_t> const& newline() const override {
+                return _nl;
+            }
+
+            std::pair<std::pair<DFA<T>, std::size_t>, bool> match(std::pair<DFA<T>, std::size_t> const& matcher, T const& value) const {
+                auto p = matcher.first.step(matcher.second, value);
+                return {{matcher.first, p.first}, p.second};
+            }
+
+        public:
+            SimpleDFALexer(std::initializer_list<Rule<Regex<T>, R, Word>> rules, Regex<T> newline = Regex<T>::empty()): 
+            _rules(), 
+            _nl{make_dfa(newline), 0} 
+            {
+                for(auto& rule: rules) {
+                    _rules.emplace_back(
+                        std::pair{make_dfa(rule.matcher()), 0},
+                        rule._map
+                    );
+                }
+            }
+        };
+
         template<typename T, typename R, typename U, container<T> Word = std::vector<T>>
         class Map final: public LexerBase<T, R, Word> {
             std::function<R(U)> _map;
@@ -215,6 +249,7 @@ namespace tfl {
     template<typename M, typename R, class Word>
     class Rule final {
         template<typename T, typename, typename, container<T>> friend class LexerImpl::SimpleLexerBase;
+        template<typename T, typename, container<T>> friend class LexerImpl::SimpleDFALexer;
         using Map = std::function<R(Word)>;
 
         M _matcher;
@@ -246,6 +281,10 @@ namespace tfl {
 
         static Lexer<T, Positioned<R>, Word> make_derivation_lexer(std::initializer_list<Rule<Regex<T>, R, Word>> rules, Regex<T> newline = Regex<T>::empty()) {
             return Lexer<T, Positioned<R>, Word>(new LexerImpl::SimpleDerivationLexer<T, R, Word>(rules, newline));
+        }
+
+        static Lexer<T, Positioned<R>, Word> make_dfa_lexer(std::initializer_list<Rule<Regex<T>, R, Word>> rules, Regex<T> newline = Regex<T>::empty()) {
+            return Lexer<T, Positioned<R>, Word>(new LexerImpl::SimpleDFALexer<T, R, Word>(rules, newline));
         }
 
         [[deprecated]]
