@@ -17,9 +17,9 @@ kaleidoscope:
 
 
 clear:
-	rm -rf build/
+	cmake --build build --target clean
 
-init: clear
-	cmake -Bbuild .
+init:
+	rm -rf build/ && cmake -Bbuild .
 
 .PHONY : test init clear

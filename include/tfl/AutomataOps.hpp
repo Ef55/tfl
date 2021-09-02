@@ -52,7 +52,7 @@ namespace tfl {
         auto r = builder.meld(right).second;
 
         for(typename NFA<T>::StateIdx i = 0; i < r; ++i) {
-            if(builder.accepting_states()[i]) {
+            if(builder.is_accepting(i)) {
                 builder
                     .add_epsilon_transition(i, r)
                     .set_acceptance(i, false);
@@ -71,7 +71,7 @@ namespace tfl {
             .add_epsilon_transition(0, 1);
 
         for(typename NFA<T>::StateIdx i = 1; i < builder.state_count(); ++i) {
-            if(builder.accepting_states()[i]) {
+            if(builder.is_accepting(i)) {
                 builder.add_epsilon_transition(i, 0);
             }
         }
@@ -112,15 +112,12 @@ namespace tfl {
         typename DFA<T>::Builder builder(inputs, size);
         
         for(auto input: inputs) {
-            auto& ltransitions = left.transitions(input);
-            auto& rtransitions = right.transitions(input);
-
             for(StateIdx l = 0; l < left.state_count(); ++l) {
                 for(StateIdx r = 0; r < right.state_count(); ++r) {
                     builder.set_transition(
                         compute_idx(l, r),
                         input,
-                        compute_idx(ltransitions[l], rtransitions[r])
+                        compute_idx(left.transition(l, input), right.transition(r, input))
                     );
                 }
             }
@@ -130,12 +127,12 @@ namespace tfl {
             for(StateIdx r = 0; r < right.state_count(); ++r) {
                 builder.set_unknown_transition(
                     compute_idx(l, r),
-                    compute_idx(left.unknown_transitions()[l], right.unknown_transitions()[r])
+                    compute_idx(left.unknown_transition(l), right.unknown_transition(r))
                 );
 
                 builder.set_acceptance(
                     compute_idx(l, r),
-                    left.accepting_states()[l] && right.accepting_states()[r]
+                    left.is_accepting(l) && right.is_accepting(r)
                 );
             }
         }

@@ -187,23 +187,11 @@ namespace tfl {
             }
 
             std::optional<typename std::vector<T>::difference_type> maximal(DFA<T> dfa, std::vector<T>::iterator beg, std::vector<T>::iterator end) const override {
-                std::optional<typename std::vector<T>::difference_type> max = std::nullopt;
-                typename std::vector<T>::difference_type idx = 0;
+                auto res = dfa.munch(std::ranges::subrange(beg, end));
 
-                typename DFA<T>::StateIdx state = 0;
-
-                for(; beg != end; ++beg) {
-                    ++idx;
-
-                    auto p = dfa.step(state, *beg);
-                    state = p.first;
-
-                    if(p.second) {
-                        max = idx;
-                    }
-                }
-
-                return max;
+                return res.has_value() 
+                    ? std::optional<typename std::vector<T>::difference_type>{res.value()} 
+                    : std::optional<typename std::vector<T>::difference_type>{};
             }
 
         public:

@@ -40,7 +40,14 @@ namespace tfl {
 
         StateIdx transition(StateIdx const& current, T const& value) const {
             check_state(current);
-            return transitions(value)[current];
+
+            auto it =  _transitions.find(value);
+            if(it != _transitions.cend()) {
+                return it->second[current];
+            }
+            else {
+                return _unknown_transitions[current];
+            }
         }
 
         template<range Tr, range Ut, range As>
@@ -67,18 +74,8 @@ namespace tfl {
             return _unknown_transitions.size();
         }
 
-        std::vector<StateIdx> const& transitions(T const& value) const {
-            auto it =  _transitions.find(value);
-            if(it != _transitions.cend()) {
-                return it->second;
-            }
-            else {
-                return _unknown_transitions;
-            }
-        }
-
-        std::vector<bool> const& accepting_states() const {
-            return _accepting_states;
+        bool is_accepting(StateIdx const& state) const {
+            return _accepting_states[check_state(state)];
         }
 
         template<range R>
@@ -92,16 +89,37 @@ namespace tfl {
                 state = transition(state, *beg);
             }
 
-            return accepting_states()[state];
+            return is_accepting(state);
         }
 
         bool accepts(std::initializer_list<T> ls) const {
             return accepts<std::initializer_list<T>&>(ls);
         }
 
-        std::pair<StateIdx, bool> step(StateIdx start, T const& value) const {
-            StateIdx end = transition(start, value);
-            return {end, accepting_states()[end]};
+        template<range R>
+        std::optional<std::size_t> munch(R&& range) const {
+            StateIdx state = 0;
+            std::size_t step = 0;
+            std::optional<std::size_t> res(std::nullopt);
+
+            for(
+                auto beg = range.begin(), end = range.end(); 
+                beg != end; 
+                ++beg
+            ) {
+                ++step;
+                state = transition(state, *beg);
+
+                if(is_accepting(state)) {
+                    res = step;
+                }
+            }
+
+            return res;
+        }
+
+        std::optional<std::size_t> munch(std::initializer_list<T> ls) const {
+            return munch<std::initializer_list<T>&>(ls);
         }
 
         class Builder final {
@@ -132,29 +150,31 @@ namespace tfl {
                     add_input(input);
                 }
             }
-            Builder(std::initializer_list<T> states = {}, StateIdx size = 0): Builder(views::all(states), size) {}
+            Builder(std::initializer_list<T> inputs = {}, StateIdx size = 0): Builder(views::all(inputs), size) {}
             Builder(StateIdx size): Builder(views::empty<T>, size) {}
 
             StateIdx state_count() const {
                 return _unknown_transitions.size();
             }
 
-            std::vector<std::optional<StateIdx>> const& transitions(T const& value) const {
+            bool is_accepting(StateIdx const& state) const {
+                return _accepting_states[check_state(state)];
+            }
+
+            std::optional<StateIdx> transition(StateIdx const& current, T const& value) const {
+                check_state(current);
+
                 auto it =  _transitions.find(value);
                 if(it != _transitions.cend()) {
-                    return it->second;
+                    return it->second[current];
                 }
                 else {
-                    return _unknown_transitions;
+                    return _unknown_transitions[current];
                 }
             }
 
-            std::vector<std::optional<StateIdx>> const& unknown_transitions() const {
-                return _unknown_transitions;
-            }
-
-            std::vector<bool> const& accepting_states() const {
-                return _accepting_states;
+            std::optional<StateIdx> unknown_transition(StateIdx const& state) const {
+                return _unknown_transitions[check_state(state)];
             }
 
             auto inputs() const {
@@ -170,6 +190,10 @@ namespace tfl {
             }
 
             std::pair<Builder&, StateIdx> add_state(std::optional<StateIdx> const& to = std::nullopt, bool accepting = false) {
+                if(to.has_value()) {
+                    check_state(to.value());
+                }
+
                 for(auto& it: _transitions) {
                     it.second.emplace_back(to);
                 }
@@ -181,13 +205,6 @@ namespace tfl {
             Builder& set_acceptance(StateIdx const& state, bool value) {
                 check_state(state);
                 _accepting_states[state] = value;
-                return *this;
-            }
-
-            Builder& complement() {
-                for(auto b: _accepting_states) {
-                    b = !b;
-                }
                 return *this;
             }
 
@@ -207,24 +224,14 @@ namespace tfl {
             Builder& set_transition(StateIdx const& state, T const& input, StateIdx const& to) {
                 check_state(state);
                 check_input(input);
+                check_state(to);
                 _transitions[input][state] = to;
                 return *this;
             }
 
-            template<range R>
-            Builder& set_transitions(StateIdx const& state, R&& transitions) {
-                for(auto& p: transitions) {
-                    set_transition(state, std::get<0>(p), std::get<1>(p));
-                }
-                return *this;
-            }
-
-            Builder& set_transitions(StateIdx const& state, std::initializer_list<std::pair<T, StateIdx>> transitions) {
-                return set_transitions<std::initializer_list<std::pair<T, StateIdx>>&>(state, transitions);
-            }
-
             Builder& set_unknown_transition(StateIdx const& state, StateIdx const& to) {
                 check_state(state);
+                check_state(to);
                 _unknown_transitions[state] = to;
                 return *this;
             }
@@ -237,7 +244,15 @@ namespace tfl {
                 return *this;
             }
 
+            Builder& complement() {
+                for(auto b: _accepting_states) {
+                    b = !b;
+                }
+                return *this;
+            }
+
             Builder& complete(StateIdx const& to) {
+                check_state(to);
                 auto cr = [to](std::optional<StateIdx>& opt){
                     if(!opt.has_value()) {
                         opt = to;
@@ -346,6 +361,13 @@ namespace tfl {
         std::vector<StateIndices> _unknown_transitions;
         std::vector<bool> _accepting_states;
 
+        StateIdx const& check_state(StateIdx const& state) const {
+            if(state >= state_count()) {
+                throw std::invalid_argument("Invalid state: " + std::to_string(state));
+            }
+            return state;
+        }
+
         template<range Tr, range Et, range Ut, range As>
         NFA(Tr&& transitions, Et&& epsilons, Ut&& unknown_transitions, As&& accepting_states): 
         _transitions(transitions.begin(), transitions.end()), 
@@ -383,23 +405,23 @@ namespace tfl {
             }
         }
 
+        StateIndices const& transition(StateIdx const& state, T const& value) const {
+            auto it =  _transitions.find(value);
+            if(it != _transitions.cend()) {
+                return it->second[state];
+            }
+            else {
+                return _unknown_transitions[state];
+            }
+        }
+
     public:
         StateIdx state_count() const {
             return _unknown_transitions.size();
         }
 
-        std::vector<StateIndices> const& transitions(T const& value) const {
-            auto it =  _transitions.find(value);
-            if(it != _transitions.cend()) {
-                return it->second;
-            }
-            else {
-                return _unknown_transitions;
-            }
-        }
-
-        std::vector<bool> const& accepting_states() const {
-            return _accepting_states;
+        bool is_accepting(StateIdx const& state) const {
+            return _accepting_states[check_state(state)];
         }
 
         bool has_epsilon_transitions() const {
@@ -421,7 +443,7 @@ namespace tfl {
                 StateIndices next;
 
                 for(StateIdx state: current) {
-                    for(StateIdx n: transitions(*beg)[state]) {
+                    for(StateIdx n: transition(state, *beg)) {
                         next.insert(n);
                     }
                 }
@@ -430,7 +452,7 @@ namespace tfl {
                 epsilon_closure(current);
             }
 
-            return any_of(current, [this](auto s){ return this->accepting_states()[s]; });
+            return any_of(current, [this](auto s){ return this->is_accepting(s); });
         }
 
         bool accepts(std::initializer_list<T> ls) const {
@@ -452,11 +474,29 @@ namespace tfl {
                 return state;
             }
 
+            template<range R>
+            R const& check_states(R const& states) const {
+                for(auto s: states) {
+                    check_state(s);
+                }
+                return states;
+            }
+
             T const& check_input(T const& input) const {
                 if(!_transitions.contains(input)) {
                     throw std::invalid_argument("Invalid input: " + Stringify<T>::convert(input));
                 }
                 return input;
+            }
+
+            std::vector<StateIndices> const& transitions(T const& value) const {
+                auto it =  _transitions.find(value);
+                if(it != _transitions.cend()) {
+                    return it->second;
+                }
+                else {
+                    return _unknown_transitions;
+                }
             }
 
         public:
@@ -471,48 +511,39 @@ namespace tfl {
                     add_input(input);
                 }
             }
-            Builder(std::initializer_list<T> states = {}, StateIdx size = 0): Builder(views::all(states), size) {}
+            Builder(std::initializer_list<T> inputs = {}, StateIdx size = 0): Builder(views::all(inputs), size) {}
             Builder(StateIdx size): Builder(views::empty<T>, size) {}
 
             StateIdx state_count() const {
                 return _unknown_transitions.size();
             }
 
-            std::vector<StateIndices> const& transitions(T const& value) const {
+            bool is_accepting(StateIdx const& state) const {
+                return _accepting_states[check_state(state)];
+            }
+
+            StateIndices transition(StateIdx const& current, T const& value) const {
+                check_state(current);
+
                 auto it =  _transitions.find(value);
                 if(it != _transitions.cend()) {
-                    return it->second;
+                    return it->second[current];
                 }
                 else {
-                    return _unknown_transitions;
+                    return _unknown_transitions[current];
                 }
             }
 
-            std::vector<bool> const& accepting_states() const {
-                return _accepting_states;
+            std::optional<StateIdx> epsilon_transition(StateIdx const& state) const {
+                return _epsilon_transitions[check_state(state)];
             }
 
+            std::optional<StateIdx> unknown_transition(StateIdx const& state) const {
+                return _unknown_transitions[check_state(state)];
+            }
+            
             auto inputs() const {
                 return transform_view(_transitions, [](auto p){ return p.first; });
-            }
-
-            StateIndices epsilon_closure(StateIdx state) const {
-                std::queue<StateIdx> queue;
-                queue.push(state);
-
-                StateIndices closure;
-
-                while(!queue.empty()) {
-                    for(StateIdx state: _epsilon_transitions[queue.front()]) {
-                        if(closure.insert(state).second) {
-                            queue.push(state);
-                        }
-                    }
-
-                    queue.pop();
-                }
-
-                return closure;
             }
 
             Builder& add_input(T const& input) {
@@ -524,6 +555,8 @@ namespace tfl {
             }
 
             std::pair<Builder&, StateIdx> add_state(StateIndices const& to = {}, bool accepting = false) {
+                check_states(to);
+
                 for(auto p: _transitions) {
                     p.second.emplace_back(to);
                 }
@@ -563,6 +596,7 @@ namespace tfl {
             Builder& add_transition(StateIdx const& state, T const& input, StateIdx const& to) {
                 check_state(state);
                 check_input(input);
+                check_state(to);
                 _transitions[input][state].insert(to);
                 return *this;
             }
@@ -571,6 +605,7 @@ namespace tfl {
             Builder& add_transitions(StateIdx const& state, T const& input, R&& to) {
                 check_state(state);
                 check_input(input);
+                check_states(to);
                 _transitions[input][state].insert(to.begin(), to.end());
                 return *this;
             }
@@ -578,6 +613,7 @@ namespace tfl {
             template<range R>
             Builder& add_epsilon_transitions(StateIdx const& state, R&& to) {
                 check_state(state);
+                check_states(to);
                 _epsilon_transitions[state].insert(to.begin(), to.end());
                 return *this;
             }
@@ -588,6 +624,7 @@ namespace tfl {
 
             Builder& add_epsilon_transition(StateIdx const& state, StateIdx to) {
                 check_state(state);
+                check_state(to);
                 _epsilon_transitions[state].insert(to);
                 return *this;
             }
@@ -595,6 +632,7 @@ namespace tfl {
             template<range R>
             Builder& add_unknown_transitions(StateIdx const& state, R&& to) {
                 check_state(state);
+                check_states(to);
                 _unknown_transitions[state].insert(to.begin(), to.end());
                 return *this;
             }
@@ -605,8 +643,28 @@ namespace tfl {
 
             Builder& add_unknown_transition(StateIdx const& state, StateIdx to) {
                 check_state(state);
+                check_state(to);
                 _unknown_transitions[state].insert(to);
                 return *this;
+            }
+
+            StateIndices epsilon_closure(StateIdx state) const {
+                std::queue<StateIdx> queue;
+                queue.push(state);
+
+                StateIndices closure;
+
+                while(!queue.empty()) {
+                    for(StateIdx state: _epsilon_transitions[queue.front()]) {
+                        if(closure.insert(state).second) {
+                            queue.push(state);
+                        }
+                    }
+
+                    queue.pop();
+                }
+
+                return closure;
             }
 
             Builder& epsilon_elimination() {
@@ -703,7 +761,7 @@ namespace tfl {
 
                 auto accepting = [this](std::vector<bool> state) {
                     for(StateIdx i = 0; i < state_count(); ++i) {
-                        if(state[i] && accepting_states()[i]) {
+                        if(state[i] && this->is_accepting(i)) {
                             return true;
                         }
                     }
