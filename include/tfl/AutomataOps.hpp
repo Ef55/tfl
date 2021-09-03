@@ -5,8 +5,108 @@
 #include "RegexOps.hpp"
 
 #include <unordered_set>
+#include <numeric>
 
 namespace tfl {
+
+    template<typename T>
+    auto cross_map(typename DFA<T>::Builder const& left, typename DFA<T>::Builder const& right) {
+        using StateIdx = DFA<T>::StateIdx;
+        auto lsize = left.state_count()+1;
+        auto rsize = right.state_count()+1;
+        return [lsize, rsize](std::optional<StateIdx> const& l, std::optional<StateIdx> const& r){ 
+            StateIdx lv = l.value_or(DFA<T>::DEAD_STATE);
+            StateIdx rv = r.value_or(DFA<T>::DEAD_STATE);
+            if(lv == DFA<T>::DEAD_STATE && rv == DFA<T>::DEAD_STATE) {
+                return DFA<T>::DEAD_STATE;
+            }
+            else if(lv == DFA<T>::DEAD_STATE){
+                return lsize-1 + rv*lsize;
+            }
+            else if(rv == DFA<T>::DEAD_STATE){
+                return lv + (rsize-1)*lsize;
+            }
+            else {
+                return lv + rv*lsize;
+            }
+        };
+    }
+
+    template<typename T>
+    auto cross_remap(typename DFA<T>::Builder const& left, typename DFA<T>::Builder const& right) {
+        using StateIdx = DFA<T>::StateIdx;
+        auto lsize = left.state_count()+1;
+        auto rsize = right.state_count()+1;
+        return [lsize, rsize](std::optional<StateIdx> const& s){ 
+            StateIdx v = s.value_or(DFA<T>::DEAD_STATE);
+
+            if(v == DFA<T>::DEAD_STATE) {
+                return std::pair{DFA<T>::DEAD_STATE, DFA<T>::DEAD_STATE};
+            }
+
+            StateIdx l = v % lsize;
+            StateIdx r = v / lsize;
+
+            if(l == lsize-1) {
+                l = DFA<T>::DEAD_STATE;
+            }
+            if(r == rsize-1) {
+                r = DFA<T>::DEAD_STATE;
+            }
+
+            return std::pair{l, r};
+        };
+    }
+
+    template<typename T>
+    DFA<T>::Builder cross(typename DFA<T>::Builder const& left, typename DFA<T>::Builder const& right) {
+        using StateIdx = DFA<T>::StateIdx;
+
+        auto size = (left.state_count()+1) * (right.state_count()+1) - 1;
+        auto compute_idx = cross_map<T>(left, right);
+        auto compute_ids = cross_remap<T>(left, right);
+
+        std::unordered_set<T> inputs;
+        auto linputs = left.inputs();
+        auto rinputs = right.inputs();
+        inputs.insert(linputs.begin(), linputs.end());
+        inputs.insert(rinputs.begin(), rinputs.end());
+
+        typename DFA<T>::Builder builder(inputs, size);
+
+        std::vector<StateIdx> lstates(left.state_count()+1);
+        std::iota(lstates.begin(), lstates.end()-1, 0);
+        lstates[left.state_count()] = DFA<T>::DEAD_STATE;
+        
+        std::vector<StateIdx> rstates(right.state_count()+1);
+        std::iota(rstates.begin(), rstates.end()-1, 0);
+        rstates[right.state_count()] = DFA<T>::DEAD_STATE;
+
+        for(auto input: inputs) {
+            for(StateIdx i = 0; i < builder.state_count(); ++i) {
+                auto [l, r] = compute_ids(i);
+
+                builder.set_transition(
+                    i,
+                    input,
+                    compute_idx(left.transition(l, input), right.transition(r, input))
+                );
+            }
+        }
+
+        for(StateIdx i = 0; i < builder.state_count(); ++i) {
+            auto [l, r] = compute_ids(i);
+
+            builder.set_unknown_transition(
+                i,
+                compute_idx(left.unknown_transition(l), right.unknown_transition(r))
+            );
+        }
+
+        builder.complete(DFA<T>::DEAD_STATE);
+
+        return builder;
+    }
 
     template<typename T>
     NFA<T>::Builder empty() {
@@ -82,62 +182,24 @@ namespace tfl {
     template<typename T>
     DFA<T>::Builder complement(typename DFA<T>::Builder const& automaton) {
         typename DFA<T>::Builder builder(automaton);
-        if(!builder.is_complete()) {
-            typename NFA<T>::StateIdx trash = builder.add_state().second;
-            builder.complete(trash);
-        }
+        builder.complete(DFA<T>::DEAD_STATE);
         
         return builder.complement();
     }
 
     template<typename T>
     DFA<T>::Builder conjunction(typename DFA<T>::Builder const& left, typename DFA<T>::Builder const& right) {
-        using StateIdx = DFA<T>::StateIdx;
+        auto builder = cross<T>(left, right);
+        auto compute_ids = cross_remap<T>(left, right);
 
-        auto size = left.state_count() * right.state_count() + 1;
-        auto trash = size-1;
-        auto lsize = left.state_count();
-        auto compute_idx = [lsize, trash](std::optional<StateIdx> const& l, std::optional<StateIdx> const& r){ 
-            return (l.has_value() && r.has_value()) ?
-                l.value() + r.value()*lsize :
-                trash;
-        };
+        for(typename DFA<T>::StateIdx i = 0; i < builder.state_count(); ++i) {
+            auto [l, r] = compute_ids(i);
 
-        std::unordered_set<T> inputs;
-        auto linputs = left.inputs();
-        auto rinputs = right.inputs();
-        inputs.insert(linputs.begin(), linputs.end());
-        inputs.insert(rinputs.begin(), rinputs.end());
-
-        typename DFA<T>::Builder builder(inputs, size);
-        
-        for(auto input: inputs) {
-            for(StateIdx l = 0; l < left.state_count(); ++l) {
-                for(StateIdx r = 0; r < right.state_count(); ++r) {
-                    builder.set_transition(
-                        compute_idx(l, r),
-                        input,
-                        compute_idx(left.transition(l, input), right.transition(r, input))
-                    );
-                }
-            }
+            builder.set_acceptance(
+                i,
+                left.is_accepting(l) && right.is_accepting(r)
+            );
         }
-
-        for(StateIdx l = 0; l < left.state_count(); ++l) {
-            for(StateIdx r = 0; r < right.state_count(); ++r) {
-                builder.set_unknown_transition(
-                    compute_idx(l, r),
-                    compute_idx(left.unknown_transition(l), right.unknown_transition(r))
-                );
-
-                builder.set_acceptance(
-                    compute_idx(l, r),
-                    left.is_accepting(l) && right.is_accepting(r)
-                );
-            }
-        }
-
-        builder.complete(trash);
 
         return builder;
     }

@@ -4,8 +4,9 @@
 
 using DFA = tfl::DFA<char>;
 using NFA = tfl::NFA<char>;
+static constexpr auto DEAD_STATE = DFA::DEAD_STATE;
 
-TEST_CASE("Basic DFAs can be built and used") {
+TEST_CASE("Basic DFAs can be built and used", "[automata][DFA]") {
     SECTION("L = ∅") {
         DFA dfa = DFA::Builder(1)
             .set_unknown_transition(0, 0);
@@ -17,9 +18,8 @@ TEST_CASE("Basic DFAs can be built and used") {
     }
 
     SECTION("L = { ε }") {
-        DFA dfa = DFA::Builder(2)
-            .set_unknown_transition(0, 1)
-            .set_unknown_transition(1, 1)
+        DFA dfa = DFA::Builder(1)
+            .set_unknown_transition(0, DEAD_STATE)
             .set_acceptance(0, true);
 
         CHECK( dfa.accepts({}) );
@@ -29,11 +29,10 @@ TEST_CASE("Basic DFAs can be built and used") {
     }
 
     SECTION("L = { a }") {
-        DFA dfa = DFA::Builder({'a'}, 3)
+        DFA dfa = DFA::Builder({'a'}, 2)
             .set_transition(0, 'a', 1)
-            .set_unknown_transition(0, 2)
-            .set_all_transitions(1, 2)
-            .set_all_transitions(2, 2)
+            .set_unknown_transition(0, DEAD_STATE)
+            .set_all_transitions(1, DEAD_STATE)
             .set_acceptance(1, true);
 
         CHECK( !dfa.accepts({}) );
@@ -45,10 +44,9 @@ TEST_CASE("Basic DFAs can be built and used") {
     }
 
     SECTION("L = { x | x ∈ Σ }") {
-        DFA dfa = DFA::Builder(3)
+        DFA dfa = DFA::Builder(2)
             .set_unknown_transition(0, 1)
-            .set_unknown_transition(1, 2)
-            .set_all_transitions(2, 2)
+            .set_unknown_transition(1, DEAD_STATE)
             .set_acceptance(1, true);
 
         CHECK( !dfa.accepts({}) );
@@ -75,12 +73,11 @@ TEST_CASE("Basic DFAs can be built and used") {
     }
 
     SECTION("L = { a, b }") {
-        DFA dfa = DFA::Builder({'a', 'b'}, 3)
+        DFA dfa = DFA::Builder({'a', 'b'}, 2)
             .set_transition(0,'a', 1)
             .set_transition(0, 'b', 1)
-            .set_unknown_transition(0, 2)
-            .set_all_transitions(1, 2)
-            .set_all_transitions(2, 2)
+            .set_unknown_transition(0, DEAD_STATE)
+            .set_all_transitions(1, DEAD_STATE)
             .set_acceptance(1, true);
 
         CHECK( !dfa.accepts({}) );
@@ -94,15 +91,14 @@ TEST_CASE("Basic DFAs can be built and used") {
     }
 
     SECTION("L = { ab }") {
-        DFA dfa = DFA::Builder({'a', 'b'}, 4)
+        DFA dfa = DFA::Builder({'a', 'b'}, 3)
             .set_transition(0, 'a', 1)
-            .set_transition(0, 'b', 3)
-            .set_unknown_transition(0, 3)
-            .set_transition(1, 'a', 3)
+            .set_transition(0, 'b', DEAD_STATE)
+            .set_unknown_transition(0, DEAD_STATE)
+            .set_transition(1, 'a', DEAD_STATE)
             .set_transition(1, 'b', 2)
-            .set_unknown_transition(1, 3)
-            .set_all_transitions(2, 3)
-            .set_all_transitions(3, 3)
+            .set_unknown_transition(1, DEAD_STATE)
+            .set_all_transitions(2, DEAD_STATE)
             .set_acceptance(2, true);
 
         CHECK( !dfa.accepts({}) );
@@ -117,20 +113,19 @@ TEST_CASE("Basic DFAs can be built and used") {
     }
 
     SECTION("L = Closure({ ab, c }, concatenation)") {
-        DFA dfa = DFA::Builder({'a', 'b', 'c'}, 4)
+        DFA dfa = DFA::Builder({'a', 'b', 'c'}, 3)
             .set_transition(0, 'a', 1)
-            .set_transition(0, 'b', 3)
+            .set_transition(0, 'b', DEAD_STATE)
             .set_transition(0, 'c', 2)
-            .set_transition(1, 'a', 3)
+            .set_transition(1, 'a', DEAD_STATE)
             .set_transition(1, 'b', 2)
-            .set_transition(1, 'c', 3)
+            .set_transition(1, 'c', DEAD_STATE)
             .set_transition(2, 'a', 1)
-            .set_transition(2, 'b', 3)
+            .set_transition(2, 'b', DEAD_STATE)
             .set_transition(2, 'c', 2)
-            .set_unknown_transition(0, 3)
-            .set_unknown_transition(1, 3)
-            .set_unknown_transition(2, 3)
-            .set_all_transitions(3, 3)
+            .set_unknown_transition(0, DEAD_STATE)
+            .set_unknown_transition(1, DEAD_STATE)
+            .set_unknown_transition(2, DEAD_STATE)
             .set_acceptance({0, 2}, true);
 
         CHECK( dfa.accepts({}) );
@@ -148,7 +143,7 @@ TEST_CASE("Basic DFAs can be built and used") {
     }
 }
 
-TEST_CASE("Incomplete DFA cannot be built") {
+TEST_CASE("Incomplete DFA cannot be built", "[automata][DFA]") {
     SECTION("Defaulted one") {
         CHECK_THROWS(
             DFA::Builder(1).finalize()
@@ -180,7 +175,7 @@ TEST_CASE("Incomplete DFA cannot be built") {
     }
 }
 
-TEST_CASE("DFA quirks") {
+TEST_CASE("DFA quirks", "[automata][DFA]") {
     SECTION("Unknown transitions are copied on input addition") {
         DFA dfa = DFA::Builder(1)
             .set_unknown_transition(0, 0)
@@ -195,7 +190,7 @@ TEST_CASE("DFA quirks") {
     }
 }
 
-TEST_CASE("DFAs can be converted into NFAs") {
+TEST_CASE("DFAs can be converted into NFAs", "[automata][nd-conversion]") {
     SECTION("L = ∅") {
         NFA nfa = DFA::Builder(1)
             .set_unknown_transition(0, 0)
@@ -208,9 +203,8 @@ TEST_CASE("DFAs can be converted into NFAs") {
     }
 
     SECTION("L = { ε }") {
-        NFA nfa = DFA::Builder(2)
-            .set_unknown_transition(0, 1)
-            .set_unknown_transition(1, 1)
+        NFA nfa = DFA::Builder(1)
+            .set_unknown_transition(0, DEAD_STATE)
             .set_acceptance(0, true)
             .make_nondeterministic();
 
@@ -221,11 +215,10 @@ TEST_CASE("DFAs can be converted into NFAs") {
     }
 
     SECTION("L = { a }") {
-        NFA nfa = DFA::Builder({'a'}, 3)
+        NFA nfa = DFA::Builder({'a'}, 2)
             .set_transition(0, 'a', 1)
-            .set_unknown_transition(0, 2)
-            .set_all_transitions(1, 2)
-            .set_all_transitions(2, 2)
+            .set_unknown_transition(0, DEAD_STATE)
+            .set_all_transitions(1, DEAD_STATE)
             .set_acceptance(1, true)
             .make_nondeterministic();
 
@@ -238,10 +231,9 @@ TEST_CASE("DFAs can be converted into NFAs") {
     }
 
     SECTION("L = { x | x ∈ Σ }") {
-        NFA nfa = DFA::Builder(3)
+        NFA nfa = DFA::Builder(2)
             .set_unknown_transition(0, 1)
-            .set_unknown_transition(1, 2)
-            .set_all_transitions(2, 2)
+            .set_unknown_transition(1, DEAD_STATE)
             .set_acceptance(1, true)
             .make_nondeterministic();
 
@@ -270,12 +262,11 @@ TEST_CASE("DFAs can be converted into NFAs") {
     }
 
     SECTION("L = { a, b }") {
-        NFA nfa = DFA::Builder({'a', 'b'}, 3)
-            .set_transition(0, 'a', 1)
+        NFA nfa = DFA::Builder({'a', 'b'}, 2)
+            .set_transition(0,'a', 1)
             .set_transition(0, 'b', 1)
-            .set_unknown_transition(0, 2)
-            .set_all_transitions(1, 2)
-            .set_all_transitions(2, 2)
+            .set_unknown_transition(0, DEAD_STATE)
+            .set_all_transitions(1, DEAD_STATE)
             .set_acceptance(1, true)
             .make_nondeterministic();
 
@@ -290,15 +281,14 @@ TEST_CASE("DFAs can be converted into NFAs") {
     }
 
     SECTION("L = { ab }") {
-        NFA nfa = DFA::Builder({'a', 'b'}, 4)
+        NFA nfa = DFA::Builder({'a', 'b'}, 3)
             .set_transition(0, 'a', 1)
-            .set_transition(0, 'b', 3)
-            .set_unknown_transition(0, 3)
-            .set_transition(1, 'a', 3)
+            .set_transition(0, 'b', DEAD_STATE)
+            .set_unknown_transition(0, DEAD_STATE)
+            .set_transition(1, 'a', DEAD_STATE)
             .set_transition(1, 'b', 2)
-            .set_unknown_transition(1, 3)
-            .set_all_transitions(2, 3)
-            .set_all_transitions(3, 3)
+            .set_unknown_transition(1, DEAD_STATE)
+            .set_all_transitions(2, DEAD_STATE)
             .set_acceptance(2, true)
             .make_nondeterministic();
 
@@ -314,20 +304,19 @@ TEST_CASE("DFAs can be converted into NFAs") {
     }
 
     SECTION("L = Closure({ ab, c }, concatenation)") {
-        NFA nfa = DFA::Builder({'a', 'b', 'c'}, 4)
+        NFA nfa = DFA::Builder({'a', 'b', 'c'}, 3)
             .set_transition(0, 'a', 1)
-            .set_transition(0, 'b', 3)
+            .set_transition(0, 'b', DEAD_STATE)
             .set_transition(0, 'c', 2)
-            .set_transition(1, 'a', 3)
+            .set_transition(1, 'a', DEAD_STATE)
             .set_transition(1, 'b', 2)
-            .set_transition(1, 'c', 3)
+            .set_transition(1, 'c', DEAD_STATE)
             .set_transition(2, 'a', 1)
-            .set_transition(2, 'b', 3)
+            .set_transition(2, 'b', DEAD_STATE)
             .set_transition(2, 'c', 2)
-            .set_unknown_transition(0, 3)
-            .set_unknown_transition(1, 3)
-            .set_unknown_transition(2, 3)
-            .set_all_transitions(3, 3)
+            .set_unknown_transition(0, DEAD_STATE)
+            .set_unknown_transition(1, DEAD_STATE)
+            .set_unknown_transition(2, DEAD_STATE)
             .set_acceptance({0, 2}, true)
             .make_nondeterministic();
 

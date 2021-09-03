@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <set>
 #include <queue>
+#include <limits>
 
 #include "tfl/Stringify.hpp"
 
@@ -26,20 +27,38 @@ namespace tfl {
     public:
         using StateIdx = std::size_t;
 
+        static constexpr StateIdx const DEAD_STATE = std::numeric_limits<StateIdx>::max();
+
     private:
         std::unordered_map<T, std::vector<StateIdx>> _transitions;
         std::vector<StateIdx> _unknown_transitions;
         std::vector<bool> _accepting_states;
 
+
+        static bool is_special_state(StateIdx const& state) {
+            return state >= DEAD_STATE;
+        }
+
         StateIdx const& check_state(StateIdx const& state) const {
+            if(state >= state_count() && !is_special_state(state)) {
+                throw std::invalid_argument("Invalid state: " + std::to_string(state));
+            }
+            return state;
+        }
+
+        StateIdx const& check_ns_state(StateIdx const& state) const {
             if(state >= state_count()) {
-                throw std::invalid_argument("Impossible current state");
+                throw std::invalid_argument("Invalid non-special state: " + std::to_string(state));
             }
             return state;
         }
 
         StateIdx transition(StateIdx const& current, T const& value) const {
-            check_state(current);
+            if(current == DEAD_STATE) {
+                return DEAD_STATE;
+            }
+
+            check_ns_state(current);
 
             auto it =  _transitions.find(value);
             if(it != _transitions.cend()) {
@@ -75,7 +94,7 @@ namespace tfl {
         }
 
         bool is_accepting(StateIdx const& state) const {
-            return _accepting_states[check_state(state)];
+            return (state == DEAD_STATE) ? false : _accepting_states[check_ns_state(state)];
         }
 
         template<range R>
@@ -83,7 +102,7 @@ namespace tfl {
             StateIdx state = 0;
             for(
                 auto beg = range.begin(), end = range.end(); 
-                beg != end; 
+                (beg != end) && (state != DEAD_STATE); 
                 ++beg
             ) {
                 state = transition(state, *beg);
@@ -104,7 +123,7 @@ namespace tfl {
 
             for(
                 auto beg = range.begin(), end = range.end(); 
-                beg != end; 
+                (beg != end) && (state != DEAD_STATE); 
                 ++beg
             ) {
                 ++step;
@@ -130,8 +149,15 @@ namespace tfl {
             std::vector<bool> _accepting_states;
 
             StateIdx const& check_state(StateIdx const& state) const {
-                if(state >= state_count()) {
+                if(state >= state_count() && !is_special_state(state)) {
                     throw std::invalid_argument("Invalid state: " + std::to_string(state));
+                }
+                return state;
+            }
+
+            StateIdx const& check_ns_state(StateIdx const& state) const {
+                if(state >= state_count()) {
+                    throw std::invalid_argument("Invalid non-special state: " + std::to_string(state));
                 }
                 return state;
             }
@@ -158,11 +184,15 @@ namespace tfl {
             }
 
             bool is_accepting(StateIdx const& state) const {
-                return _accepting_states[check_state(state)];
+                return state == DEAD_STATE ? false : _accepting_states[check_ns_state(state)];
             }
 
             std::optional<StateIdx> transition(StateIdx const& current, T const& value) const {
-                check_state(current);
+                if(current == DEAD_STATE) {
+                    return std::optional{DEAD_STATE};
+                }
+
+                check_ns_state(current);
 
                 auto it =  _transitions.find(value);
                 if(it != _transitions.cend()) {
@@ -174,7 +204,7 @@ namespace tfl {
             }
 
             std::optional<StateIdx> unknown_transition(StateIdx const& state) const {
-                return _unknown_transitions[check_state(state)];
+                return (state == DEAD_STATE) ? std::optional{DEAD_STATE} : _unknown_transitions[check_ns_state(state)];
             }
 
             auto inputs() const {
@@ -190,6 +220,10 @@ namespace tfl {
             }
 
             std::pair<Builder&, StateIdx> add_state(std::optional<StateIdx> const& to = std::nullopt, bool accepting = false) {
+                if(is_special_state(state_count())) {
+                    throw std::logic_error("DFA reached maximal size.");
+                }
+
                 if(to.has_value()) {
                     check_state(to.value());
                 }
@@ -203,7 +237,7 @@ namespace tfl {
             }
 
             Builder& set_acceptance(StateIdx const& state, bool value) {
-                check_state(state);
+                check_ns_state(state);
                 _accepting_states[state] = value;
                 return *this;
             }
@@ -211,7 +245,7 @@ namespace tfl {
             template<range R>
             Builder& set_acceptance(R&& states, bool value) {
                 for(auto state: states) {
-                    check_state(state);
+                    check_ns_state(state);
                     _accepting_states[state] = value;
                 }
                 return *this;
@@ -222,7 +256,7 @@ namespace tfl {
             }
 
             Builder& set_transition(StateIdx const& state, T const& input, StateIdx const& to) {
-                check_state(state);
+                check_ns_state(state);
                 check_input(input);
                 check_state(to);
                 _transitions[input][state] = to;
@@ -230,7 +264,7 @@ namespace tfl {
             }
 
             Builder& set_unknown_transition(StateIdx const& state, StateIdx const& to) {
-                check_state(state);
+                check_ns_state(state);
                 check_state(to);
                 _unknown_transitions[state] = to;
                 return *this;
@@ -248,6 +282,22 @@ namespace tfl {
                 for(auto b: _accepting_states) {
                     b = !b;
                 }
+
+                StateIdx live = add_state().second;
+                set_all_transitions(live, live);
+                set_acceptance(live, true);
+
+                auto cr = [live](std::optional<StateIdx>& opt){
+                    if(opt.has_value() && opt.value() == DEAD_STATE) {
+                        opt = live;
+                    }
+                };
+
+                for(auto& p: _transitions) {
+                    for_each(p.second, cr);
+                }
+                for_each(_unknown_transitions, cr);
+
                 return *this;
             }
 
@@ -324,14 +374,14 @@ namespace tfl {
                     builder.add_input(p.first);
 
                     for(StateIdx i = 0; i < state_count(); ++i) {
-                        if(p.second[i].has_value()) {
+                        if(p.second[i].has_value() && p.second[i].value() != DEAD_STATE) {
                             builder.add_transition(i, p.first, p.second[i].value());
                         }
                     }
                 }
 
                 for(StateIdx i = 0; i < state_count(); ++i) {
-                    if(_unknown_transitions[i].has_value()) {
+                    if(_unknown_transitions[i].has_value() && _unknown_transitions[i].value() != DEAD_STATE) {
                         builder.add_unknown_transition(i, _unknown_transitions[i].value());
                     }
                 }
@@ -768,14 +818,14 @@ namespace tfl {
                     return false;
                 };
                 
-                std::vector<bool> trash(state_count(), false);
-                std::vector<bool> start(trash);
+                std::vector<bool> dead(state_count(), false);
+                std::vector<bool> start(dead);
                 start[0] = true;
 
                 typename DFA<T>::Builder builder(inputs);
                 std::unordered_map<std::vector<bool>, typename DFA<T>::StateIdx> indices;
                 indices.emplace(start, builder.add_state().second);
-                indices.emplace(trash, builder.add_state().second);
+                indices.emplace(dead, DFA<T>::DEAD_STATE);
 
                 std::queue<std::vector<bool>> queue;
                 queue.push(start);
@@ -813,7 +863,7 @@ namespace tfl {
                     }
                 }
 
-                builder.complete(indices[trash]);
+                builder.complete(indices[dead]);
 
                 return builder;
             }

@@ -16,10 +16,10 @@ using NFA = tfl::NFA<char>;
 using DFA = tfl::DFA<char>;
 
 static bool daccept(Regex const& r, std::vector<char> ls) {
-    return tfl::is_nullable(tfl::derive(ls.cbegin(), ls.cend(), r));
+    return tfl::is_nullable(tfl::derive(ls, r));
 }
 
-TEST_CASE("Regex `accept`s benchmarking") {
+TEST_CASE("Regex `accept`s benchmarking", "[regex]") {
     using Catch::Generators::chunk;
     using Catch::Generators::random;
 
@@ -109,27 +109,27 @@ Specs:
 
 Result:
     ...............................................................................
-    benchmark name                          samples     iterations    estimated
-                                            mean        low mean      high mean
-                                            std dev     low std dev   high std dev
+    benchmark name                          samples      iterations    estimated
+                                            mean         low mean      high mean
+                                            std dev      low std dev   high std dev
     -------------------------------------------------------------------------------
-    Using derivation and nullability               100             1     52.7016 s 
-                                            331.601 ms    279.584 ms    378.946 ms 
-                                            252.879 ms    235.151 ms    261.459 ms 
+    Using derivation and nullability               100             1     20.1902 s 
+                                            252.992 ms    212.709 ms    289.626 ms 
+                                            196.867 ms    183.918 ms    202.775 ms 
                                                                                 
-    Building the NFA                               100             1    566.739 ms 
-                                            5.55533 ms    5.35502 ms    6.07012 ms 
-                                            1.43431 ms    72.4793 us     2.6731 ms 
+    Building the NFA                               100             1    274.082 ms 
+                                            2.73796 ms    2.73441 ms    2.74352 ms 
+                                            22.2374 us    16.2341 us    32.5903 us 
                                                                                 
-    Using a NFA                                    100             1     6.05765 s 
-                                            50.578 ms    45.6174 ms    55.3715 ms 
-                                            24.7726 ms    23.6128 ms    25.5217 ms 
+    Using a NFA                                    100             1     2.90752 s 
+                                            24.0109 ms     21.206 ms     26.803 ms 
+                                            13.8937 ms     13.286 ms    14.0344 ms 
                                                                                 
-    Building the DFA                               100             1     2.59341 s 
-                                            25.4015 ms    25.1397 ms    25.9197 ms 
-                                            1.81931 ms    1.12049 ms    3.18854 ms 
+    Building the DFA                               100             1     1.32351 s 
+                                            13.3133 ms    13.2843 ms    13.3509 ms 
+                                            167.676 us    135.971 us    210.338 us 
                                                                                 
-    Using a DFA                                    100             1    118.238 ms 
-                                            1.17918 ms    1.17824 ms     1.1815 ms 
-                                            7.11919 us    3.62309 us    14.5841 us 
+    Using a DFA                                    100             1    102.352 ms 
+                                            1.02379 ms    1.02276 ms    1.02507 ms 
+                                            5.81902 us    4.77966 us    7.25158 us
  */

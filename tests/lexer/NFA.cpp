@@ -5,7 +5,7 @@
 using DFA = tfl::DFA<char>;
 using NFA = tfl::NFA<char>;
 
-TEST_CASE("Basic NFAs can be built and used") {
+TEST_CASE("Basic NFAs can be built and used", "[automata][NFA]") {
     SECTION("L = ∅") {
         NFA nfa = NFA::Builder(1);
 
@@ -124,7 +124,7 @@ TEST_CASE("Basic NFAs can be built and used") {
     }
 }
 
-TEST_CASE("Epsilon elimination doesn't change the NFA's behavior") {
+TEST_CASE("Epsilon elimination doesn't change the NFA's behavior", "[automata][NFA]") {
     SECTION("L = ∅") {
         NFA nfa = NFA::Builder(1)
             .epsilon_elimination();
@@ -251,7 +251,7 @@ TEST_CASE("Epsilon elimination doesn't change the NFA's behavior") {
     }
 }
 
-TEST_CASE("NFAs can be converted into DFAs") {
+TEST_CASE("NFAs can be converted into DFAs", "[automata][nd-conversion]") {
     SECTION("L = ∅") {
         DFA dfa = NFA::Builder(1)
             .make_deterministic();

@@ -45,7 +45,7 @@ static Regex const e = Regex::epsilon();
 static Regex const s = Regex::alphabet();
 static Regex const any = ~Regex::empty();
  
-TEMPLATE_TEST_CASE("Regexes accept/reject as expected", "[template]", ACCEPTERS) {
+TEMPLATE_TEST_CASE("Regexes accept/reject as expected", "[template][regex]", ACCEPTERS) {
     auto accepts = TestType::accepts;
   
     SECTION("∅ (empty)") {
@@ -318,7 +318,7 @@ TEMPLATE_TEST_CASE("Regexes accept/reject as expected", "[template]", ACCEPTERS)
 
 }
 
-TEMPLATE_TEST_CASE("Compacted regexes accept/reject as expected", "[template]", ACCEPTERS) {
+TEMPLATE_TEST_CASE("Compacted regexes accept/reject as expected", "[template][regex]", ACCEPTERS) {
     auto accepts = TestType::accepts_v;
 
     auto e = Regex::epsilon();
@@ -401,7 +401,7 @@ TEMPLATE_TEST_CASE("Compacted regexes accept/reject as expected", "[template]", 
     }
 }
 
-TEMPLATE_TEST_CASE("Additional regex combinators accept/reject as expected", "[template]", ACCEPTERS) {
+TEMPLATE_TEST_CASE("Additional regex combinators accept/reject as expected", "[template][regex]", ACCEPTERS) {
     auto accepts = TestType::accepts;
 
     SECTION("Kleene + (+)") {
@@ -492,5 +492,59 @@ TEMPLATE_TEST_CASE("Additional regex combinators accept/reject as expected", "[t
         CHECK( !accepts(r, {'7'}) );
         CHECK( !accepts(r, {'8'}) );
         CHECK( !accepts(r, {'9'}) );
+    }
+}
+
+TEMPLATE_TEST_CASE("Complex regexes accept/reject as expected", "[template][regex]", ACCEPTERS) {
+    auto accepts = TestType::accepts;
+
+    Regex a = Regex::literal('a');
+    Regex b = Regex::literal('b');
+    Regex c = Regex::literal('c');
+    Regex d = Regex::literal('d');
+    Regex eps = Regex::epsilon();
+    Regex alph = Regex::alphabet();
+    Regex any = Regex::any();
+
+    Regex s1 = *(a|b|c) / *(a-Regexes::opt(b|c));
+    Regex s2 = *((a|b) - (c|d) - Regexes::opt(alph)) / (any-d-a-any);
+
+    SECTION("*(a|b|c)/*(a?(b|c))") {
+        REQUIRE( !accepts(s1, {}) );
+        REQUIRE( !accepts(s1, {'a'}) );
+        REQUIRE( accepts(s1, {'b'}) );
+        REQUIRE( accepts(s1, {'c'}) );
+        REQUIRE( !accepts(s1, {'a', 'a'}) );
+        REQUIRE( !accepts(s1, {'a', 'b'}) );
+        REQUIRE( !accepts(s1, {'a', 'c'}) );
+        REQUIRE( accepts(s1, {'c', 'b'}) );
+        REQUIRE( accepts(s1, {'c', 'c'}) );
+        REQUIRE( !accepts(s1, {'a', 'a', 'a'}) );
+        REQUIRE( !accepts(s1, {'a', 'b', 'a'}) );
+        REQUIRE( !accepts(s1, {'a', 'a', 'b'}) );
+        REQUIRE( accepts(s1, {'b', 'b', 'b'}) );
+        REQUIRE( accepts(s1, {'a', 'a', 'a', 'b', 'b'}) );
+        REQUIRE( accepts(s1, {'a', 'a', 'a', 'b', 'c'}) );
+        REQUIRE( accepts(s1, {'a', 'a', 'a', 'c', 'c'}) );
+        REQUIRE( !accepts(s1, {'a', 'a', 'b', 'a', 'a', 'a', 'a'}) );
+        REQUIRE( !accepts(s1, {'a', 'a', 'b', 'a', 'a', 'a', 'c'}) );
+        REQUIRE( accepts(s1, {'a', 'a', 'b', 'c', 'a', 'a', 'c'}) );
+    }
+
+    SECTION("*((a|b)(c|d)?Σ)/(¬∅da¬∅)") {
+        REQUIRE( accepts(s2, {}) );
+        REQUIRE( !accepts(s2, {'a'}) );
+        REQUIRE( !accepts(s2, {'b'}) );
+        REQUIRE( !accepts(s2, {'c'}) );
+        REQUIRE( !accepts(s2, {'a', 'a', 'b'}) );
+        REQUIRE( accepts(s2, {'a', 'c', 'a'}) );
+        REQUIRE( accepts(s2, {'a', 'c', 'z'}) );
+        REQUIRE( !accepts(s2, {'a', 'd', 'a', 'c'}) );
+        REQUIRE( accepts(s2, {'a', 'c', 'b', 'd', 'z'}) );
+        REQUIRE( accepts(s2, {'a', 'c', 'z', 'b', 'd', 'z'}) );
+        REQUIRE( accepts(s2, {'a', 'c', 'a', 'c', 'a', 'c'}) );
+        REQUIRE( !accepts(s2, {'a', 'c', 'a', 'd', 'a', 'c'}) );
+        REQUIRE( !accepts(s2, {'a', 'c', 'b', 'd', 'a', 'c'}) );
+        REQUIRE( accepts(s2, {'a', 'c', 'b', 'd', 'b', 'c', 'z'}) );
     }
 }
