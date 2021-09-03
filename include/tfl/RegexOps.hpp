@@ -32,6 +32,18 @@ namespace tfl {
             virtual R conjunction(Regex<T> const& left, Regex<T> const& right) const = 0;
         };
 
+        template<typename T, typename R, typename D>
+        class MutableBase: public Base<T, R> {
+            D* _data;
+
+        public:
+            template<typename... Args>
+            MutableBase(Args&&... args): _data(new D(std::forward<Args>(args)...)) {}
+            ~MutableBase() { delete _data; }
+
+            inline D& mut() const { return *_data; }
+        };
+
         template<typename T>
         class IsNone: public Base<T, bool> {
             virtual bool empty() const { return false; }

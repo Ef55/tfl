@@ -13,9 +13,83 @@ namespace {
     struct GraphWrapper final {
         T const& inner;
     };
+
+    struct RegexDotGrapherData {
+        std::ostream& stream;
+        std::size_t id;
+    };
+
+    template<typename T>
+    class RegexDotGrapher final: public tfl::matchers::MutableBase<T, std::size_t, RegexDotGrapherData> {
+    private:
+        using tfl::matchers::Base<T, std::size_t>::rec;
+
+        inline std::ostream& stream() const { return this->mut().stream; }
+        inline std::size_t new_id() const { return this->mut().id++; }
+
+        inline std::size_t leaf(std::string const& label) const {
+            auto id = new_id();
+            stream() << id << "[shape=none,label=<<u>" << label << "</u>>];\n";
+            return id;
+        }
+
+        inline std::size_t unary(std::string const& label, tfl::Regex<T> const&  child) const {
+            auto c = rec(child);
+            auto id = new_id();
+            stream() << id << "[shape=none,label=\"" << label << "\"];\n";
+            stream() << id << " -> " << c << ";\n";
+            return id;
+        }
+
+        inline std::size_t binary(std::string const& label, tfl::Regex<T> const& left, tfl::Regex<T> const& right) const {
+            auto l = rec(left);
+            auto r = rec(right);
+            auto id = new_id();
+            stream() << id << "[shape=none,label=\"" << label << "\"];\n"; 
+            stream() << id << " -> " << l << ";\n";
+            stream() << id << " -> " << r << ";\n";
+            return id;
+        }
+
+    public:
+        RegexDotGrapher(std::ostream& stream): tfl::matchers::MutableBase<T, std::size_t, RegexDotGrapherData>(stream, 0) {}
+
+        std::size_t empty() const override {
+            return leaf("∅");
+        }
+        std::size_t epsilon() const override {
+            return leaf("ε");
+        }
+        std::size_t alphabet() const override {
+            return leaf("Σ");
+        }
+        std::size_t literal(T const& literal) const override {
+            return leaf(tfl::Stringify<T>::convert(literal));
+        }
+        std::size_t disjunction(tfl::Regex<T> const& left, tfl::Regex<T> const& right) const override {
+            return binary("|", left, right);
+        }
+        std::size_t sequence(tfl::Regex<T> const& left, tfl::Regex<T> const& right) const override {
+            return binary("·", left, right);
+        }
+        std::size_t kleene_star(tfl::Regex<T> const& regex) const override {
+            return unary("*", regex);
+        }
+        std::size_t complement(tfl::Regex<T> const& regex) const override {
+            return unary("¬", regex);
+        }
+        std::size_t conjunction(tfl::Regex<T> const& left, tfl::Regex<T> const& right) const override {
+            return binary("&", left, right);
+        }
+    };
 }
 
 namespace tfl {
+
+    template<typename T>
+    auto dot_graph(Regex<T> const& regex) {
+        return GraphWrapper<Regex<T>>(regex);
+    }
 
     template<typename T>
     auto dot_graph(DFA<T> const& dfa) {
@@ -26,6 +100,16 @@ namespace tfl {
     auto dot_graph(NFA<T> const& nfa) {
         return GraphWrapper<NFA<T>>(nfa);
     }
+}
+
+
+template<typename T>
+std::ostream& operator<<(std::ostream& stream, GraphWrapper<tfl::Regex<T>> const& wregex) {
+    stream << "digraph {\n";
+    wregex.inner.match(RegexDotGrapher<T>(stream));
+    stream << '}';
+
+    return stream;
 }
 
 template<typename T>
@@ -43,7 +127,7 @@ std::ostream& operator<<(std::ostream& stream, GraphWrapper<tfl::DFA<T>> const& 
 
     for(auto input: dfa.inputs()) {
         for(StateIdx i = 0; i < dfa.state_count(); ++i) { 
-            stream << i << " -> " << dfa.transition(i, input) << "[label=" << tfl::Stringify<T>::convert(input) << "];\n";
+            stream << i << " -> " << dfa.transition(i, input) << "[label=\"" << tfl::Stringify<T>::convert(input) << "\"];\n";
         }
     }
     for(StateIdx i = 0; i < dfa.state_count(); ++i) {
@@ -69,7 +153,7 @@ std::ostream& operator<<(std::ostream& stream, GraphWrapper<tfl::NFA<T>> const& 
     for(auto input: nfa.inputs()) {
         for(StateIdx i = 0; i < nfa.state_count(); ++i) { 
             for(StateIdx j: nfa.transition(i, input)) {
-                stream << i << " -> " << j << "[label=" << tfl::Stringify<T>::convert(input) << "];\n";
+                stream << i << " -> " << j << "[label=\"" << tfl::Stringify<T>::convert(input) << "\"];\n";
             }
         }
     }

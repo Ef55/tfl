@@ -11,10 +11,16 @@ using DFA = tfl::DFA<char>;
 using NFA = tfl::NFA<char>;
 
 int main(int argc, char** argv) {
-    Regex regex = (Regex::literal('a')-Regex::literal('b')) | Regex::literal('c');
+    Regex regex = (Regex::literal('a')-Regex::alphabet()) | Regex::literal('b');
 
     DFA dfa = make_dfa(regex);
     NFA nfa = make_nfa(regex);
+
+
+    std::ofstream rfile("regex.dot");
+    rfile << tfl::dot_graph(regex) << std::endl;
+    rfile.close();
+    std::system("dot -Tpng regex.dot -o regex.png");
 
     std::ofstream dfile("dfa.dot");
     dfile << tfl::dot_graph(dfa) << std::endl;
