@@ -17,47 +17,56 @@ namespace tfl {
     class Regex final {
         struct Empty {
             template<typename R> inline R match(matchers::Base<T, R> const& matcher) const { return matcher.empty(); }
+            template<typename R> inline R match(matchers::MutableBase<T, R>& matcher) const { return matcher.empty(); }
         };
 
         struct Epsilon {
             template<typename R> inline R match(matchers::Base<T, R> const& matcher) const { return matcher.epsilon(); }
+            template<typename R> inline R match(matchers::MutableBase<T, R>& matcher) const { return matcher.epsilon(); }
         };
 
         struct Alphabet {
             template<typename R> inline R match(matchers::Base<T, R> const& matcher) const { return matcher.alphabet(); }
+            template<typename R> inline R match(matchers::MutableBase<T, R>& matcher) const { return matcher.alphabet(); }
         };
 
         struct Literal {
             T const _lit;
             template<typename R> inline R match(matchers::Base<T, R> const& matcher) const { return matcher.literal(_lit); }
+            template<typename R> inline R match(matchers::MutableBase<T, R>& matcher) const { return matcher.literal(_lit); }
         };
 
         struct Disjunction {
             Regex const _left;
             Regex const _right;
             template<typename R> inline R match(matchers::Base<T, R> const& matcher) const { return matcher.disjunction(_left, _right); }
+            template<typename R> inline R match(matchers::MutableBase<T, R>& matcher) const { return matcher.disjunction(_left, _right); }
         };
 
         struct Sequence {
             Regex const _left;
             Regex const _right;
             template<typename R> inline R match(matchers::Base<T, R> const& matcher) const { return matcher.sequence(_left, _right); }
+            template<typename R> inline R match(matchers::MutableBase<T, R>& matcher) const { return matcher.sequence(_left, _right); }
         };
 
         struct KleeneStar {
             Regex const _underlying;
             template<typename R> inline R match(matchers::Base<T, R> const& matcher) const { return matcher.kleene_star(_underlying); }
+            template<typename R> inline R match(matchers::MutableBase<T, R>& matcher) const { return matcher.kleene_star(_underlying); }
         };
 
         struct Complement {
             Regex const _underlying;
             template<typename R> inline R match(matchers::Base<T, R> const& matcher) const { return matcher.complement(_underlying); }
+            template<typename R> inline R match(matchers::MutableBase<T, R>& matcher) const { return matcher.complement(_underlying); }
         };
 
         struct Conjunction {
             Regex const _left;
             Regex const _right;
             template<typename R> inline R match(matchers::Base<T, R> const& matcher) const { return matcher.conjunction(_left, _right); }
+            template<typename R> inline R match(matchers::MutableBase<T, R>& matcher) const { return matcher.conjunction(_left, _right); }
         };
 
         using Variant = std::variant<Empty, Epsilon, Alphabet, Literal, Disjunction, Sequence, KleeneStar, Complement, Conjunction>;
@@ -71,6 +80,16 @@ namespace tfl {
 
         template<typename R>
         R match(matchers::Base<T, R> const& matcher) const {
+            return std::visit([&matcher](auto r){ return r.match(matcher); }, *_regex);
+        }
+
+        template<typename R>
+        R match(matchers::MutableBase<T, R>& matcher) const {
+            return std::visit([&matcher](auto r){ return r.match(matcher); }, *_regex);
+        }
+
+        template<typename R>
+        R match(matchers::MutableBase<T, R>&& matcher) const {
             return std::visit([&matcher](auto r){ return r.match(matcher); }, *_regex);
         }
 

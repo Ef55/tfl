@@ -32,16 +32,24 @@ namespace tfl {
             virtual R conjunction(Regex<T> const& left, Regex<T> const& right) const = 0;
         };
 
-        template<typename T, typename R, typename D>
-        class MutableBase: public Base<T, R> {
-            D* _data;
+        template<typename T, typename R>
+        class MutableBase {
+        protected:
+            virtual ~MutableBase() = default;
 
         public:
-            template<typename... Args>
-            MutableBase(Args&&... args): _data(new D(std::forward<Args>(args)...)) {}
-            ~MutableBase() { delete _data; }
+            virtual inline R rec(Regex<T> const& regex) final { return regex.match(*this); };
+            virtual inline R operator()(Regex<T> const& regex) final { return rec(regex); }
 
-            inline D& mut() const { return *_data; }
+            virtual R empty() = 0;
+            virtual R epsilon() = 0;
+            virtual R alphabet() = 0;
+            virtual R literal(T const& literal) = 0;
+            virtual R disjunction(Regex<T> const& left, Regex<T> const& right) = 0;
+            virtual R sequence(Regex<T> const& left, Regex<T> const& right) = 0;
+            virtual R kleene_star(Regex<T> const& regex) = 0;
+            virtual R complement(Regex<T> const& regex) = 0;
+            virtual R conjunction(Regex<T> const& left, Regex<T> const& right) = 0;
         };
 
         template<typename T>

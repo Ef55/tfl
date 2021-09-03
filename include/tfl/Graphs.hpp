@@ -14,71 +14,68 @@ namespace {
         T const& inner;
     };
 
-    struct RegexDotGrapherData {
-        std::ostream& stream;
-        std::size_t id;
-    };
-
     template<typename T>
-    class RegexDotGrapher final: public tfl::matchers::MutableBase<T, std::size_t, RegexDotGrapherData> {
+    class RegexDotGrapher final: public tfl::matchers::MutableBase<T, std::size_t> {
     private:
-        using tfl::matchers::Base<T, std::size_t>::rec;
+        using tfl::matchers::MutableBase<T, std::size_t>::rec;
 
-        inline std::ostream& stream() const { return this->mut().stream; }
-        inline std::size_t new_id() const { return this->mut().id++; }
+        std::ostream& _stream;
+        std::size_t _id;
 
-        inline std::size_t leaf(std::string const& label) const {
+        inline std::size_t new_id() { return _id++; }
+
+        inline std::size_t leaf(std::string const& label) {
             auto id = new_id();
-            stream() << id << "[shape=none,label=<<u>" << label << "</u>>];\n";
+            _stream << id << "[shape=none,label=<<u>" << label << "</u>>];\n";
             return id;
         }
 
-        inline std::size_t unary(std::string const& label, tfl::Regex<T> const&  child) const {
+        inline std::size_t unary(std::string const& label, tfl::Regex<T> const&  child) {
             auto c = rec(child);
             auto id = new_id();
-            stream() << id << "[shape=none,label=\"" << label << "\"];\n";
-            stream() << id << " -> " << c << ";\n";
+            _stream << id << "[shape=none,label=\"" << label << "\"];\n";
+            _stream << id << " -> " << c << ";\n";
             return id;
         }
 
-        inline std::size_t binary(std::string const& label, tfl::Regex<T> const& left, tfl::Regex<T> const& right) const {
+        inline std::size_t binary(std::string const& label, tfl::Regex<T> const& left, tfl::Regex<T> const& right) {
             auto l = rec(left);
             auto r = rec(right);
             auto id = new_id();
-            stream() << id << "[shape=none,label=\"" << label << "\"];\n"; 
-            stream() << id << " -> " << l << ";\n";
-            stream() << id << " -> " << r << ";\n";
+            _stream << id << "[shape=none,label=\"" << label << "\"];\n"; 
+            _stream << id << " -> " << l << ";\n";
+            _stream << id << " -> " << r << ";\n";
             return id;
         }
 
     public:
-        RegexDotGrapher(std::ostream& stream): tfl::matchers::MutableBase<T, std::size_t, RegexDotGrapherData>(stream, 0) {}
+        RegexDotGrapher(std::ostream& stream): _stream(stream), _id(0) {}
 
-        std::size_t empty() const override {
+        std::size_t empty() override {
             return leaf("∅");
         }
-        std::size_t epsilon() const override {
+        std::size_t epsilon() override {
             return leaf("ε");
         }
-        std::size_t alphabet() const override {
+        std::size_t alphabet() override {
             return leaf("Σ");
         }
-        std::size_t literal(T const& literal) const override {
+        std::size_t literal(T const& literal) override {
             return leaf(tfl::Stringify<T>::convert(literal));
         }
-        std::size_t disjunction(tfl::Regex<T> const& left, tfl::Regex<T> const& right) const override {
+        std::size_t disjunction(tfl::Regex<T> const& left, tfl::Regex<T> const& right) override {
             return binary("|", left, right);
         }
-        std::size_t sequence(tfl::Regex<T> const& left, tfl::Regex<T> const& right) const override {
+        std::size_t sequence(tfl::Regex<T> const& left, tfl::Regex<T> const& right) override {
             return binary("·", left, right);
         }
-        std::size_t kleene_star(tfl::Regex<T> const& regex) const override {
+        std::size_t kleene_star(tfl::Regex<T> const& regex) override {
             return unary("*", regex);
         }
-        std::size_t complement(tfl::Regex<T> const& regex) const override {
+        std::size_t complement(tfl::Regex<T> const& regex) override {
             return unary("¬", regex);
         }
-        std::size_t conjunction(tfl::Regex<T> const& left, tfl::Regex<T> const& right) const override {
+        std::size_t conjunction(tfl::Regex<T> const& left, tfl::Regex<T> const& right) override {
             return binary("&", left, right);
         }
     };
