@@ -53,22 +53,6 @@ namespace tfl {
             return state;
         }
 
-        StateIdx transition(StateIdx const& current, T const& value) const {
-            if(current == DEAD_STATE) {
-                return DEAD_STATE;
-            }
-
-            check_ns_state(current);
-
-            auto it =  _transitions.find(value);
-            if(it != _transitions.cend()) {
-                return it->second[current];
-            }
-            else {
-                return _unknown_transitions[current];
-            }
-        }
-
         template<range Tr, range Ut, range As>
         DFA(Tr&& transitions, Ut&& unknown_transitions, As&& accepting_states): 
         _transitions(transitions.begin(), transitions.end()), 
@@ -95,6 +79,34 @@ namespace tfl {
 
         bool is_accepting(StateIdx const& state) const {
             return (state == DEAD_STATE) ? false : _accepting_states[check_ns_state(state)];
+        }
+
+        StateIdx transition(StateIdx const& current, T const& value) const {
+            if(current == DEAD_STATE) {
+                return DEAD_STATE;
+            }
+
+            check_ns_state(current);
+
+            auto it =  _transitions.find(value);
+            if(it != _transitions.cend()) {
+                return it->second[current];
+            }
+            else {
+                return _unknown_transitions[current];
+            }
+        }
+
+        StateIdx unknown_transition(StateIdx const& current) const {
+            if(current == DEAD_STATE) {
+                return DEAD_STATE;
+            }
+
+            return _unknown_transitions[check_ns_state(current)];
+        }
+
+        auto inputs() const {
+            return transform_view(_transitions, [](auto p){ return p.first; });
         }
 
         template<range R>
@@ -455,16 +467,6 @@ namespace tfl {
             }
         }
 
-        StateIndices const& transition(StateIdx const& state, T const& value) const {
-            auto it =  _transitions.find(value);
-            if(it != _transitions.cend()) {
-                return it->second[state];
-            }
-            else {
-                return _unknown_transitions[state];
-            }
-        }
-
     public:
         StateIdx state_count() const {
             return _unknown_transitions.size();
@@ -472,6 +474,30 @@ namespace tfl {
 
         bool is_accepting(StateIdx const& state) const {
             return _accepting_states[check_state(state)];
+        }
+
+        StateIndices transition(StateIdx const& current, T const& value) const {
+            check_state(current);
+
+            auto it =  _transitions.find(value);
+            if(it != _transitions.cend()) {
+                return it->second[current];
+            }
+            else {
+                return _unknown_transitions[current];
+            }
+        }
+
+        StateIndices epsilon_transition(StateIdx const& current) const {
+            return _epsilon_transitions[check_state(current)];
+        }
+
+        StateIndices unknown_transition(StateIdx const& current) const {
+            return _unknown_transitions[check_state(current)];
+        }
+
+        auto inputs() const {
+            return transform_view(_transitions, [](auto p){ return p.first; });
         }
 
         bool has_epsilon_transitions() const {

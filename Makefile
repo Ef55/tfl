@@ -9,6 +9,9 @@ benchmark:
 calculator:
 	cmake --build build --target Calculator && cd examples/calculator && ../../build/bin/Calculator ${input}
 
+graphs:
+	cmake --build build --target Graphs && cd examples/graphs && ../../build/bin/Graphs ${input}
+
 json:
 	cmake --build build --target Json && cd examples/json && ../../build/bin/Json ${input}
 
