@@ -11,8 +11,42 @@
 #include "Stringify.hpp"
 #include "Concepts.hpp"
 
+/**
+ * @brief Contains the definition of regexes.
+ * @file 
+ */
+
 namespace tfl {
     
+    /**
+     * @brief %Regex.
+     *
+     * Implemented in a <a href="https://en.wikipedia.org/wiki/Algebraic_data_type">ADT</a>-like fashion. 
+     * The "constructors" are:
+     * - Empty;
+     * - Epsilon;
+     * - Alphabet;
+     * - Literal(T);
+     * - Disjunction(Regex, Regex);
+     * - Sequence(Regex, Regex);
+     * - KleeneStar(Regex);
+     * - Complement(Regex);
+     * - Conjunction(Regex, Regex).
+     *
+     * Pattern matching can be performed using \ref matchers::Base in conjunction with \ref match().
+     *
+     * Note that this implementation only sees regexes as a "binary-tree-like structure",
+     * which defines accepted/rejected sequences, but not as a direct tool to match sequences of literals.
+     * This can then be performed using regex derivation, DFAs or NFAs.
+     * 
+     * @tparam T Type of literals.
+     *
+     * @see \ref derive() for regex derivation.
+     * @see \ref DFA for DFAs.
+     * @see \ref NFA for NFAs.
+     *
+     * \nosubgrouping
+     */
     template<typename T>
     class Regex final {
         struct Empty {
@@ -76,42 +110,51 @@ namespace tfl {
         Regex(R&& regex): _regex(std::make_shared<Variant>(std::forward<R>(regex))) {}
 
     public:
+        /**
+        * @brief Type of literals (Equivalent to template T).
+        */
         using TokenType = T;
 
-        template<typename R>
-        R match(matchers::Base<T, R> const& matcher) const {
-            return std::visit([&matcher](auto r){ return r.match(matcher); }, *_regex);
-        }
+        
+        /**
+         * @name Constructors
+         * @{
+         */
 
-        template<typename R>
-        R match(matchers::MutableBase<T, R>& matcher) const {
-            return std::visit([&matcher](auto r){ return r.match(matcher); }, *_regex);
-        }
-
-        template<typename R>
-        R match(matchers::MutableBase<T, R>&& matcher) const {
-            return std::visit([&matcher](auto r){ return r.match(matcher); }, *_regex);
-        }
-
+        /**
+         * @brief Constructs an empty regex.
+         */
         static Regex empty() {
             static Regex const empty{Empty{}};
             return empty;
         }
 
+        /**
+         * @brief Constructs an epsilon regex.
+         */
         static Regex epsilon() {
             static Regex epsilon{Epsilon{}};
             return epsilon;
         }
 
+        /**
+         * @brief Constructs an alphabet regex.
+         */
         static Regex alphabet() {
             static Regex alpha{Alphabet{}};
             return alpha;
         }
 
+        /**
+         * @brief Constructs a literal regex.
+         */
         static Regex literal(T const& lit) {
             return Regex{Literal(lit)};
         }
 
+        /**
+         * @brief Constructs the disjunction of `this` and `that` regex.
+         */
         Regex operator|(Regex const& that) const {
             if(is_empty(*this) || is_any(that)) {
                 return that;
@@ -124,6 +167,9 @@ namespace tfl {
             }
         }
 
+        /**
+         * @brief Constructs the sequence of `this` and `that` regex.
+         */
         Regex operator-(Regex const& that) const {
             if(is_empty(*this) || is_empty(that)) {
                 return empty();
@@ -139,6 +185,9 @@ namespace tfl {
             }
         }
 
+        /**
+         * @brief Constructs the closure/repetition/(kleene)star of `this` regex.
+         */
         Regex operator*() const {
             if(is_kleene_star(*this)) {
                 return *this;
@@ -154,6 +203,9 @@ namespace tfl {
             }
         }
 
+        /**
+         * @brief Constructs the complement of `this` regex.
+         */
         Regex operator~() const {
             if(is_complement(*this)) {
                 return std::get<Complement>(*_regex)._underlying;
@@ -163,6 +215,9 @@ namespace tfl {
             }
         }
 
+        /**
+         * @brief Constructs the conjunction of `this` and `that` regex.
+         */
         Regex operator&(Regex const& that) const {
             if(is_empty(*this) || is_empty(that)) {
                 return empty();
@@ -177,30 +232,97 @@ namespace tfl {
                 return Regex(Conjunction{*this, that});
             }
         }
+        ///@}
 
+
+        /**
+         * @name Matching functions
+         * @brief Apply a matcher to `this` regex.
+         *
+         * A matcher must inherit from either 
+         * \ref matchers::Base or \ref matchers::MutableBase (see the latter for the difference between them).
+         *
+         * A matcher implements a function for each regex constructor. When \ref match() is called, 
+         * the function of `matcher` corresponding to the constructor used to build `this` will be called
+         * with the arguments used to build `this`.
+         *
+         * @{ 
+         */
+
+        template<typename R>
+        R match(matchers::Base<T, R> const& matcher) const {
+            return std::visit([&matcher](auto r){ return r.match(matcher); }, *_regex);
+        }
+
+        template<typename R>
+        R match(matchers::MutableBase<T, R>& matcher) const {
+            return std::visit([&matcher](auto r){ return r.match(matcher); }, *_regex);
+        }
+
+        template<typename R>
+        R match(matchers::MutableBase<T, R>&& matcher) const {
+            return std::visit([&matcher](auto r){ return r.match(matcher); }, *_regex);
+        }
+        ///@}
+
+
+        /**
+         * @name Additional constructors
+         * @{
+         */
+
+        /**
+         * @brief Constructs a regex matching any sequence.
+         *
+         * \f[ \Sigma^{*} = \neg \emptyset \f] 
+         */
         static Regex any() {
             static Regex const any{~empty()};
             return any;
         }
 
+        /**
+         * @brief Constructs the kleene plus of `this` regex.
+         *
+         * \f[ r^{+} \equiv rr^{*} \f]
+         */
         Regex operator+() const {
             return *this - Regex(KleeneStar(*this));
         }
 
+        /**
+         * @brief Constructs the substraction of `that` regex from `this` regex.
+         *
+         * \f[ r_{1} \mathbin{/} r_{2} \equiv r_{1} \mathbin{\&} \neg r_{2} \f]
+         */
         Regex operator/(Regex const& that) const {
             return *this & ~that;
         }
+        ///@}
 
     };
 
 
-
+    /**
+     * @brief "Ghost class" containing functions to build regexes. 
+     * 
+     * This class is meant to be privately inherited to bring all
+     * functions into scope.
+     *
+     * @tparam T Type of literals.
+     */
     template<typename T>
     struct Regexes {
     protected:
         Regexes() = default;
 
     public:
+
+        /**
+         * @name Base constructors
+         * @see The constructors in \ref Regex with the same name 
+         * @{
+         */
 
         static Regex<T> empty() {
             return Regex<T>::empty();
@@ -218,65 +340,100 @@ namespace tfl {
             return Regex<T>::literal(lit);
         }
 
+        static Regex<T> any() {
+            return Regex<T>::any();
+        }
+        ///@}
+
+        /**
+         * @name Additional combinators
+         * @{
+         */
+
+        /**
+         * @brief Makes the regex accept ε.
+         */
         static Regex<T> opt(Regex<T> const& r) {
             return epsilon() | r;
         }
 
-        template<iterable<T> C>
-        static Regex<T> word(C const& iterable) {
+        /**
+         * @brief Makes a regex which only accept the specified sequence.
+         */
+        template<range_of<T> C>
+        static Regex<T> word(C const& range_of) {
             Regex<T> result = Regex<T>::epsilon();
-            for(T const& lit : iterable) {
+            for(T const& lit : range_of) {
                 result = result - Regex<T>::literal(lit);
             }
 
             return result;
         }
 
-        static Regex<T> word(std::initializer_list<T> const& iterable) {
-            return word<std::initializer_list<T>>(iterable);
+        /**
+         * @brief Makes a regex which only accept the specified sequence.
+         */
+        static Regex<T> word(std::initializer_list<T> const& range_of) {
+            return word<std::initializer_list<T>>(range_of);
         }
 
-        static Regex<T> any() {
-            return Regex<T>::any();
-        }
-
-        template<iterable<T> C>
-        static Regex<T> any_of(C const& iterable) {
+        /**
+         * @brief Makes a regex which accepts any of the literal passed as argument.
+         */
+        template<range_of<T> C>
+        static Regex<T> any_of(C const& range_of) {
             Regex<T> result = Regex<T>::empty();
-            for(T const& lit : iterable) {
+            for(T const& lit : range_of) {
                 result = result | Regex<T>::literal(lit);
             }
 
             return result;
         }
 
-        template<iterable<Regex<T>> C>
-        static Regex<T> any_of(C const& iterable) {
+        /**
+         * @brief Makes a regex which accepts any sequence accepted by one of the regex passed as argument.
+         */
+        template<range_of<Regex<T>> C>
+        static Regex<T> any_of(C const& range_of) {
             Regex<T> result = Regex<T>::empty();
-            for(Regex<T> const& regex : iterable) {
+            for(Regex<T> const& regex : range_of) {
                 result = result | regex;
             }
 
             return result;
         }
 
+        /**
+         * @brief Calls one of the other overloads of `any_of` depending on the type `C`.
+         */
         template<typename C>
-        static Regex<T> any_of(std::initializer_list<C> const& iterable) {
-            return any_of<std::initializer_list<C>>(iterable);
+        static Regex<T> any_of(std::initializer_list<C> const& range_of) {
+            return any_of<std::initializer_list<C>>(range_of);
         }
 
-        template<class eq = std::equal_to<T>, class less = std::less<T>>
+        /**
+         * @brief Makes a regex accepting any literal in range.
+         * 
+         * This function requires that prefix `operator++` is defined on type `T`.
+         *
+         * @tparam eq Function-object defining literal equality.
+         * @tparam less Function-object defining literal "less-than".
+         * @param low Range lower-bound (included).
+         * @param high Range upper-bound (included).
+         */
+        template<class Eq = std::equal_to<T>, class Less = std::less<T>>
         static Regex<T> range(T low, T const& high) {
-            if(less{}(low, high)) {
+            if(Less{}(low, high)) {
                 auto c = literal(low); // Variable needed, since c++ doesn't guarantee operands evaluation order
                 return c | range(++low, high); 
             }
-            else if(eq{}(low, high)) {
+            else if(Eq{}(low, high)) {
                 return literal(low);
             }
             else {
                 return empty();
             }
         }
+        ///@}
     };
 }

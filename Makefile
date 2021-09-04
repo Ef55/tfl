@@ -3,6 +3,9 @@ input=
 test:
 	cmake --build build --target Tests && build/bin/Tests ${input}
 
+doc:
+	cmake --build build --target Doc
+
 benchmark:
 	cmake --build build --target Benchmarks && build/bin/Benchmarks ${input}
 
