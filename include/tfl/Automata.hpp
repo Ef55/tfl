@@ -187,6 +187,10 @@ namespace tfl {
         }
 
         /**
+         * @name Language membership
+         * @{
+         */
+        /**
          * @brief Tests whether \f$ \textup{sequence} \in \mathcal{L} \f$
          * 
          * @tparam R Type of the input sequence.
@@ -215,7 +219,7 @@ namespace tfl {
         }
 
         /**
-         * @brief Find the length of the longest prefix accepted.
+         * @brief Find the length of the longest prefix belonging to \f$ \mathcal{L} \f$.
          *
          * Formally, given a sequence \f$ (x_1, x_2, \ldots, x_n) \f$ returns 
          * \f$ \max \left\{ l \mid (x_1, x_2, \ldots, x_l) \in \mathcal{L} \right\} \f$
@@ -224,14 +228,15 @@ namespace tfl {
          * @param sequence The sequence to munch.
          * @return Empty if no prefix belongs to the language, otherwise the length of the longest prefix.
          *
-         * @note The returned length is never 0, even if \f$ \varepsilon \in \mathcal{L} \f$ (empty is returned instead).
-         * @todo Remove behavior mentioned in note above.
+         * @note The returned length might be 0 if \f$ \varepsilon \in \mathcal{L} \f$.
          */
         template<range R>
         std::optional<std::size_t> munch(R&& sequence) const noexcept {
             StateIdx state = 0;
             std::size_t step = 0;
-            std::optional<std::size_t> res(std::nullopt);
+            std::optional<std::size_t> res = is_accepting(state) ? 
+                std::optional<std::size_t>{0} : 
+                std::optional<std::size_t>{std::nullopt};
 
             for(
                 auto beg = sequence.begin(), end = sequence.end(); 
@@ -250,12 +255,13 @@ namespace tfl {
         }
 
         /**
-         * @brief Find the length of the longest prefix accepted.
+         * @brief Find the length of the longest prefix belonging to \f$ \mathcal{L} \f$.
          * @see \ref munch<R>()
          */
         std::optional<std::size_t> munch(std::initializer_list<T> sequence) const noexcept {
             return munch(views::all(sequence));
         }
+        ///@}
 
         /**
          * @brief Allows DFA creation.

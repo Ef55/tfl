@@ -1,8 +1,10 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_template_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_string.hpp>
 
 #include "tfl/Lexer.hpp"
 
+#include <string>
 #include <variant>
 
 namespace Catch {
@@ -186,4 +188,13 @@ TEMPLATE_TEST_CASE("Simple usecase", "[template]", LEXERS) {
             R(4)
         }
     );
+}
+
+TEMPLATE_TEST_CASE("Throws when no rule is applicable", "[template]", LEXERS) {
+    using Regexes = tfl::Regexes<char>;
+    auto lexer = TestType::template make<char, int, std::string>({
+        {*Regexes::range('0', '9'), [](auto w){ return std::stoi(w); }}
+    });
+
+    REQUIRE_THROWS_WITH( lexer(std::string("NotDigits")), Catch::Matchers::Contains("applicable") );
 }
