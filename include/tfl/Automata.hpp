@@ -97,6 +97,20 @@ namespace tfl {
             return state;
         }
 
+        StateIdx transition_unchecked(StateIdx const& state, T const& x) const {
+            if(state == DEAD_STATE) {
+                return DEAD_STATE;
+            }
+
+            auto it =  _transitions.find(x);
+            if(it != _transitions.cend()) {
+                return it->second[state];
+            }
+            else {
+                return _unknown_transitions[state];
+            }
+        }
+
         template<range Tr, range Ut, range As>
         DFA(Tr&& transitions, Ut&& unknown_transitions, As&& accepting_states): 
         _transitions(transitions.begin(), transitions.end()), 
@@ -134,9 +148,8 @@ namespace tfl {
         /**
          * @brief Returns \f$ \delta(\textup{state} \times x) \f$.
          *
-         * If \f$ x \not\in T^{-} \f$, this is equivalent to \ref unknown_transition().
-         *
          * @exception std::invalid_argument If \f$ x \not\in Q \f$
+         * or \f$ x \not\in T^{-} \f$.
          */
         StateIdx transition(StateIdx const& state, T const& x) const {
             if(state == DEAD_STATE) {
@@ -150,7 +163,7 @@ namespace tfl {
                 return it->second[state];
             }
             else {
-                return _unknown_transitions[state];
+                throw std::invalid_argument("Invalid input: " + Stringify<T>::convert(x));
             }
         }
 
@@ -169,7 +182,7 @@ namespace tfl {
         /**
          * @brief Returns \f$ T^{-} \f$.
          */
-        auto inputs() const {
+        auto alphabet() const {
             return transform_view(_transitions, [](auto p){ return p.first; });
         }
 
@@ -180,14 +193,14 @@ namespace tfl {
          * @param sequence The sequence to test for language-membership.
          */
         template<range R>
-        bool accepts(R&& sequence) const {
+        bool accepts(R&& sequence) const noexcept {
             StateIdx state = 0;
             for(
                 auto beg = sequence.begin(), end = sequence.end(); 
                 (beg != end) && (state != DEAD_STATE); 
                 ++beg
             ) {
-                state = transition(state, *beg);
+                state = transition_unchecked(state, *beg);
             }
 
             return is_accepting(state);
@@ -197,7 +210,7 @@ namespace tfl {
          * @brief Tests whether \f$ \textup{sequence} \in \mathcal{L} \f$
          * @see \ref accepts<R>()
          */
-        bool accepts(std::initializer_list<T> sequence) const {
+        bool accepts(std::initializer_list<T> sequence) const noexcept {
             return accepts(views::all(sequence));
         }
 
@@ -215,7 +228,7 @@ namespace tfl {
          * @todo Remove behavior mentioned in note above.
          */
         template<range R>
-        std::optional<std::size_t> munch(R&& sequence) const {
+        std::optional<std::size_t> munch(R&& sequence) const noexcept {
             StateIdx state = 0;
             std::size_t step = 0;
             std::optional<std::size_t> res(std::nullopt);
@@ -226,7 +239,7 @@ namespace tfl {
                 ++beg
             ) {
                 ++step;
-                state = transition(state, *beg);
+                state = transition_unchecked(state, *beg);
 
                 if(is_accepting(state)) {
                     res = step;
@@ -240,7 +253,7 @@ namespace tfl {
          * @brief Find the length of the longest prefix accepted.
          * @see \ref munch<R>()
          */
-        std::optional<std::size_t> munch(std::initializer_list<T> sequence) const {
+        std::optional<std::size_t> munch(std::initializer_list<T> sequence) const noexcept {
             return munch(views::all(sequence));
         }
 
@@ -317,23 +330,24 @@ namespace tfl {
             /**
              * @brief Returns \f$ \delta(\textup{state} \times x) \f$.
              *
-             * If \f$ x \not\in T^{-} \f$, this is equivalent to \ref unknown_transition().
+             * If \f$ x \not\in T^{-} \f$, then this is equivalent to \ref unknown_transition().
              *
              * @return Empty if the transition is not yet defined, the transition otherwise.
-            */
-            std::optional<StateIdx> transition(StateIdx const& current, T const& value) const {
-                if(current == DEAD_STATE) {
+             * @exception std::invalid_argument If \f$ \textup{state} \not\in Q \f$.
+             */
+            std::optional<StateIdx> transition(StateIdx const& state, T const& x) const {
+                if(state == DEAD_STATE) {
                     return std::optional{DEAD_STATE};
                 }
 
-                check_ns_state(current);
+                check_ns_state(state);
 
-                auto it =  _transitions.find(value);
+                auto it =  _transitions.find(x);
                 if(it != _transitions.cend()) {
-                    return it->second[current];
+                    return it->second[state];
                 }
                 else {
-                    return _unknown_transitions[current];
+                    return _unknown_transitions[state];
                 }
             }
 
@@ -350,7 +364,7 @@ namespace tfl {
             /**
              * @brief Returns \f$ T^{-} \f$.
              */
-            auto inputs() const {
+            auto alphabet() const {
                 return transform_view(_transitions, [](auto p){ return p.first; });
             }
 
@@ -687,6 +701,16 @@ namespace tfl {
             return state;
         }
 
+        StateIndices transition_unchecked(StateIdx const& state, T const& x) const {
+            auto it =  _transitions.find(x);
+            if(it != _transitions.cend()) {
+                return it->second[state];
+            }
+            else {
+                return _unknown_transitions[state];
+            }
+        }
+
         template<range Tr, range Et, range Ut, range As>
         NFA(Tr&& transitions, Et&& epsilons, Ut&& unknown_transitions, As&& accepting_states): 
         _transitions(transitions.begin(), transitions.end()), 
@@ -743,19 +767,18 @@ namespace tfl {
         /**
          * @brief Returns \f$ \delta(\textup{state} \times x) \f$.
          *
-         * If \f$ x \not\in T^{-} \f$, this is equivalent to \ref unknown_transition().
-         *
          * @exception std::invalid_argument If \f$ x \not\in Q \f$
+         * or \f$ x \not\in T^{-} \f$.
          */
-        StateIndices transition(StateIdx const& state, T const& value) const {
+        StateIndices transition(StateIdx const& state, T const& x) const {
             check_state(state);
 
-            auto it =  _transitions.find(value);
+            auto it =  _transitions.find(x);
             if(it != _transitions.cend()) {
                 return it->second[state];
             }
             else {
-                return _unknown_transitions[state];
+                throw std::invalid_argument("Invalid input: " + Stringify<T>::convert(x));
             }
         }
 
@@ -778,7 +801,7 @@ namespace tfl {
         /**
          * @brief Returns \f$ T^{-} \f$.
          */
-        auto inputs() const {
+        auto alphabet() const {
             return transform_view(_transitions, [](auto p){ return p.first; });
         }
 
@@ -810,7 +833,7 @@ namespace tfl {
                 StateIndices next;
 
                 for(StateIdx state: current) {
-                    for(StateIdx n: transition(state, *beg)) {
+                    for(StateIdx n: transition_unchecked(state, *beg)) {
                         next.insert(n);
                     }
                 }
@@ -922,13 +945,14 @@ namespace tfl {
             /**
              * @brief Returns \f$ \delta(\textup{state} \times x) \f$.
              *
-             * If \f$ x \not\in T^{-} \f$, this is equivalent to \ref unknown_transition().
-             * @exception std::invalid_argument If \f$ \textup{state} \not\in Q \f$
+             * If \f$ x \not\in T^{-} \f$, then this is equivalent to \ref unknown_transition().
+             *
+             * @exception std::invalid_argument If \f$ \textup{state} \not\in Q \f$.
             */
-            StateIndices transition(StateIdx const& state, T const& value) const {
+            StateIndices transition(StateIdx const& state, T const& x) const {
                 check_state(state);
 
-                auto it =  _transitions.find(value);
+                auto it =  _transitions.find(x);
                 if(it != _transitions.cend()) {
                     return it->second[state];
                 }
@@ -957,7 +981,7 @@ namespace tfl {
             /**
              * @brief Returns \f$ T^{-} \f$.
              */
-            auto inputs() const {
+            auto alphabet() const {
                 return transform_view(_transitions, [](auto p){ return p.first; });
             }
 
@@ -1183,7 +1207,7 @@ namespace tfl {
              * @return This and the the new index of `that` initial state.
              */
             std::pair<Builder&, StateIdx> meld(Builder const& that) {
-                for(auto input: that.inputs()) {
+                for(auto input: that.alphabet()) {
                     add_input(input);
                 }
 

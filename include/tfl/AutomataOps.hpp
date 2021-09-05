@@ -45,8 +45,8 @@ namespace tfl {
         auto compute_ids = cross_remap<T>(left, right);
 
         std::unordered_set<T> inputs;
-        auto linputs = left.inputs();
-        auto rinputs = right.inputs();
+        auto linputs = left.alphabet();
+        auto rinputs = right.alphabet();
         inputs.insert(linputs.begin(), linputs.end());
         inputs.insert(rinputs.begin(), rinputs.end());
 

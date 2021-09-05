@@ -152,7 +152,7 @@ std::ostream& operator<<(std::ostream& stream, GraphWrapper<tfl::DFA<T>> const& 
     stream << tfl::DFA<T>::DEAD_STATE << "[shape=" << NORMAL_STATE_SHAPE << ",label=∅];\n";
     stream << tfl::DFA<T>::DEAD_STATE << " -> " << tfl::DFA<T>::DEAD_STATE << ";\n";
 
-    for(auto input: dfa.inputs()) {
+    for(auto input: dfa.alphabet()) {
         for(StateIdx i = 0; i < dfa.state_count(); ++i) { 
             stream << i << " -> " << dfa.transition(i, input) << "[label=\"" << tfl::Stringify<T>::convert(input) << "\"];\n";
         }
@@ -177,7 +177,7 @@ std::ostream& operator<<(std::ostream& stream, GraphWrapper<tfl::NFA<T>> const& 
         stream << i << "[shape=" << (nfa.is_accepting(i) ? ACCEPTING_STATE_SHAPE : NORMAL_STATE_SHAPE) << "];\n";
     }
 
-    for(auto input: nfa.inputs()) {
+    for(auto input: nfa.alphabet()) {
         for(StateIdx i = 0; i < nfa.state_count(); ++i) { 
             for(StateIdx j: nfa.transition(i, input)) {
                 stream << i << " -> " << j << "[label=\"" << tfl::Stringify<T>::convert(input) << "\"];\n";
