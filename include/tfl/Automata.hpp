@@ -245,7 +245,7 @@ namespace tfl {
         }
 
         /**
-         * @brief Allow DFA creation.
+         * @brief Allows DFA creation.
          */
         class Builder final {
             using OptStateIdx = std::optional<StateIdx>;
@@ -276,23 +276,51 @@ namespace tfl {
             }
 
         public:
+            /**
+             * @brief Creates a builder with initial \f$ T^{-} = \textup{inputs}\f$ and `size` states.
+             */
             template<range R>
             Builder(R&& inputs, StateIdx size = 0): _transitions(), _unknown_transitions(size, std::nullopt), _accepting_states(size, 0) {
                 for(auto input: inputs) {
                     add_input(input);
                 }
             }
+
+            /**
+             * @brief Creates a builder with initial \f$ T^{-} = \textup{inputs}\f$ and `size` states.
+             */
             Builder(std::initializer_list<T> inputs = {}, StateIdx size = 0): Builder(views::all(inputs), size) {}
+            
+            /**
+             * @brief Creates a builder with `size` states.
+             */
             Builder(StateIdx size): Builder(views::empty<T>, size) {}
 
+            /**
+             * @brief Returns the number of states. The dead state is not counted.
+             */
             StateIdx state_count() const {
                 return _unknown_transitions.size();
             }
 
+            /**
+             * @brief Tests whether \f$ \textup{state} \in F\f$.
+             */
             bool is_accepting(StateIdx const& state) const {
                 return state == DEAD_STATE ? false : _accepting_states[check_ns_state(state)];
             }
 
+            /**
+             * @name Transition getters 
+             * @{
+             */
+            /**
+             * @brief Returns \f$ \delta(\textup{state} \times x) \f$.
+             *
+             * If \f$ x \not\in T^{-} \f$, this is equivalent to \ref unknown_transition().
+             *
+             * @return Empty if the transition is not yet defined, the transition otherwise.
+            */
             std::optional<StateIdx> transition(StateIdx const& current, T const& value) const {
                 if(current == DEAD_STATE) {
                     return std::optional{DEAD_STATE};
@@ -309,22 +337,43 @@ namespace tfl {
                 }
             }
 
+            /**
+             * @brief Returns \f$ \delta(\textup{state} \times \textsc{UNKNOWN}) \f$.
+             * 
+             * @return Empty if the transition is not yet defined, the transition otherwise.
+             */
             std::optional<StateIdx> unknown_transition(StateIdx const& state) const {
                 return (state == DEAD_STATE) ? std::optional{DEAD_STATE} : _unknown_transitions[check_ns_state(state)];
             }
+            ///@}
 
+            /**
+             * @brief Returns \f$ T^{-} \f$.
+             */
             auto inputs() const {
                 return transform_view(_transitions, [](auto p){ return p.first; });
             }
 
-            Builder& add_input(T const& input) {
+            /**
+             * @brief Adds \f$ t \f$ to \f$ T^{-} \f$.
+             * @return This.
+             */
+            Builder& add_input(T const& t) {
                 _transitions.insert(std::pair{
-                    input, 
+                    t, 
                     _unknown_transitions
                 });
                 return *this;
             }
 
+            /**
+             * @brief Adds a new state \f$ i \f$.
+             * 
+             * @param to The (optional) value of \f$ \delta(i, x) \forall x \in (\Sigma \cup \textsc{UNKNOWN}) \f$.
+             * @param accepting whether \f$ i \in F \f$.
+             * @return  This, as well as the new state's index, \f$ i \f$.
+             * @exception std::invalid_argument If \f$ \textup{to} \not\in Q \f$
+             */
             std::pair<Builder&, StateIdx> add_state(std::optional<StateIdx> const& to = std::nullopt, bool accepting = false) {
                 if(is_special_state(state_count())) {
                     throw std::logic_error("DFA reached maximal size.");
@@ -342,12 +391,25 @@ namespace tfl {
                 return { *this, state_count()-1 };
             }
 
+            /**
+             * @name Acceptance setters
+             * @return This.
+             * @{
+             */
+            /**
+             * @brief Sets whether \f$ \textup{state} \in F \f$.
+             * @exception std::invalid_argument If \f$ \textup{state} \not\in Q \f$.
+             */
             Builder& set_acceptance(StateIdx const& state, bool value) {
                 check_ns_state(state);
                 _accepting_states[state] = value;
                 return *this;
             }
 
+            /**
+             * @brief Sets whether \f$ \textup{states} \subset F \f$.
+             * @exception std::invalid_argument If \f$ \textup{states} \not\subset Q \f$.
+             */
             template<range R>
             Builder& set_acceptance(R&& states, bool value) {
                 for(auto state: states) {
@@ -357,18 +419,39 @@ namespace tfl {
                 return *this;
             }
 
+            /**
+             * @brief Sets whether \f$ \textup{states} \subset F \f$.
+             * @exception std::invalid_argument If \f$ \textup{states} \not\subset Q \f$.
+             */
             Builder& set_acceptance(std::initializer_list<T> states, bool value) {
                 return set_acceptance<std::initializer_list<T>&>(states, value);
             }
+            ///@}
 
-            Builder& set_transition(StateIdx const& state, T const& input, StateIdx const& to) {
+            /**
+             * @name Transition setters
+             * @return This.
+             * @{
+             */
+            /**
+             * @brief Sets \f$ \delta(\textup{state}, x) := \textup{to} \f$.
+             * @exception std::invalid_argument If \f$ \textup{state} \not\in (Q \mathbin{\backslash} {\textsc{DEAD}}) \f$
+             * or \f$ x \not\in T^{-} \f$
+             * or \f$ \textup{to} \not\in Q \f$
+             */
+            Builder& set_transition(StateIdx const& state, T const& x, StateIdx const& to) {
                 check_ns_state(state);
-                check_input(input);
+                check_input(x);
                 check_state(to);
-                _transitions[input][state] = to;
+                _transitions[x][state] = to;
                 return *this;
             }
 
+            /**
+             * @brief Sets \f$ \delta(\textup{state}, \textsc{UNKNOWN}) := \textup{to} \f$.
+             * @exception std::invalid_argument If \f$ \textup{state} \not\in (Q \mathbin{\backslash} {\textsc{DEAD}}) \f$
+             * or \f$ \textup{to} \not\in Q \f$
+             */
             Builder& set_unknown_transition(StateIdx const& state, StateIdx const& to) {
                 check_ns_state(state);
                 check_state(to);
@@ -376,6 +459,9 @@ namespace tfl {
                 return *this;
             }
 
+            /**
+             * @brief Sets \f$ \delta(\textup{state}, x) := \textup{to} \quad \forall x \in (\Sigma \cup \textsc{UNKNOWN}) \f$.
+             */
             Builder& set_all_transitions(StateIdx const& state, StateIdx const& to) {
                 set_unknown_transition(state, to);
                 for(auto& p: _transitions) {
@@ -383,7 +469,16 @@ namespace tfl {
                 }
                 return *this;
             }
+            ///@}
 
+            /**
+             * @brief Swaps accepting and rejecting (i.e. non-accepting) states.
+             *
+             * Also changes all transitions into the dead state into transitions
+             * into a "live state" (accepting and transitioning into itself for any input).
+             *
+             * @return This.
+             */
             Builder& complement() {
                 for(auto b: _accepting_states) {
                     b = !b;
@@ -407,6 +502,11 @@ namespace tfl {
                 return *this;
             }
 
+            /**
+             * @brief Sets all missing transitions.
+             * @return This.
+             * @exception std::invalid_argument If \f$ \textup{to} \not\in Q \f$
+             */
             Builder& complete(StateIdx const& to) {
                 check_state(to);
                 auto cr = [to](std::optional<StateIdx>& opt){
@@ -423,6 +523,9 @@ namespace tfl {
                 return *this;
             }
 
+            /**
+             * @brief Tests whether  all transitions are set. 
+             */
             bool is_complete() const {
                 return std::all_of(
                         _transitions.cbegin(), _transitions.cend(),
@@ -439,6 +542,11 @@ namespace tfl {
                     );
             }
 
+            /**
+             * @name DFA finalization
+             * @brief Builds the DFA.
+             * @{
+             */
             DFA finalize() const {
                 if(state_count() == 0) {
                     throw std::invalid_argument("A DFA must have at least one state.");
@@ -472,7 +580,15 @@ namespace tfl {
             operator DFA() const {
                 return finalize();
             }
+            ///@}
 
+            /**
+             * @name Make non-deterministic
+             * @brief Transforms this builder into a builder for an equivalent DFA.
+             *
+             * Undefined transitions are left undefined.
+             * @{
+             */
             NFA<T>::Builder make_nondeterministic() const {
                 typename NFA<T>::Builder builder(state_count());
 
@@ -502,6 +618,7 @@ namespace tfl {
             operator NFA<T>::Builder() const {
                 return make_nondeterministic();
             }
+            ///@}
         };
     };
 
@@ -609,7 +726,7 @@ namespace tfl {
 
     public:
         /**
-         * @brief Returns the number of states. The dead state is not counted.
+         * @brief Returns the number of states.
          */
         StateIdx state_count() const {
             return _unknown_transitions.size();
@@ -617,6 +734,7 @@ namespace tfl {
 
         /**
          * @brief Tests whether \f$ \textup{state} \in F\f$.
+         * @exception std::invalid_argument If \f$ \textup{state} \not\in Q \f$
          */
         bool is_accepting(StateIdx const& state) const {
             return _accepting_states[check_state(state)];
@@ -714,7 +832,7 @@ namespace tfl {
 
 
         /**
-         * @brief Allow NFA creation.
+         * @brief Allows NFA creation.
          */
         class Builder final {
             using OptStateIdx = std::optional<StateIdx>;
@@ -757,6 +875,9 @@ namespace tfl {
             }
 
         public:
+            /**
+             * @brief Creates a builder with initial \f$ T^{-} = \textup{inputs}\f$ and `size` states.
+             */
             template<range R>
             Builder(R&& inputs, StateIdx size = 0): 
             _transitions(), 
@@ -768,41 +889,82 @@ namespace tfl {
                     add_input(input);
                 }
             }
+
+            /**
+             * @brief Creates a builder with initial \f$ T^{-} = \textup{inputs}\f$ and `size` states.
+             */
             Builder(std::initializer_list<T> inputs = {}, StateIdx size = 0): Builder(views::all(inputs), size) {}
+            
+            /**
+             * @brief Creates a builder with `size` states.
+             */
             Builder(StateIdx size): Builder(views::empty<T>, size) {}
 
+            /**
+             * @brief Returns the number of states.
+             */
             StateIdx state_count() const {
                 return _unknown_transitions.size();
             }
 
+            /**
+             * @brief Tests whether \f$ \textup{state} \in F\f$.
+             * @exception std::invalid_argument If \f$ \textup{state} \not\in Q \f$
+             */
             bool is_accepting(StateIdx const& state) const {
                 return _accepting_states[check_state(state)];
             }
 
-            StateIndices transition(StateIdx const& current, T const& value) const {
-                check_state(current);
+            /**
+             * @name Transition getters 
+             * @{
+             */
+            /**
+             * @brief Returns \f$ \delta(\textup{state} \times x) \f$.
+             *
+             * If \f$ x \not\in T^{-} \f$, this is equivalent to \ref unknown_transition().
+             * @exception std::invalid_argument If \f$ \textup{state} \not\in Q \f$
+            */
+            StateIndices transition(StateIdx const& state, T const& value) const {
+                check_state(state);
 
                 auto it =  _transitions.find(value);
                 if(it != _transitions.cend()) {
-                    return it->second[current];
+                    return it->second[state];
                 }
                 else {
-                    return _unknown_transitions[current];
+                    return _unknown_transitions[state];
                 }
             }
 
+            /**
+             * @brief Returns \f$ \delta(\textup{state} \times \varepsilon) \f$.
+             * @exception std::invalid_argument If \f$ \textup{state} \not\in Q \f$
+             */
             std::optional<StateIdx> epsilon_transition(StateIdx const& state) const {
                 return _epsilon_transitions[check_state(state)];
             }
 
+            /**
+             * @brief Returns \f$ \delta(\textup{state} \times \textsc{UNKNOWN}) \f$.
+             * @exception std::invalid_argument If \f$ \textup{state} \not\in Q \f$
+             */
             std::optional<StateIdx> unknown_transition(StateIdx const& state) const {
                 return _unknown_transitions[check_state(state)];
             }
+            ///@}
             
+            /**
+             * @brief Returns \f$ T^{-} \f$.
+             */
             auto inputs() const {
                 return transform_view(_transitions, [](auto p){ return p.first; });
             }
 
+            /**
+             * @brief Adds \f$ t \f$ to \f$ T^{-} \f$.
+             * @return This.
+             */
             Builder& add_input(T const& input) {
                 _transitions.insert(std::pair{
                     input, 
@@ -811,6 +973,18 @@ namespace tfl {
                 return *this;
             }
 
+            /**
+             * @name State addition
+             * @brief Adds a new state \f$ i \f$.
+             * 
+             * @param to The initial value of \f$ \delta(i, x) \forall x \in (\Sigma \cup \textsc{UNKNOWN}) \f$.
+             * @param accepting whether \f$ i \in F \f$.
+             * @return  This, as well as the new state's index, \f$ i \f$.
+             * @{
+             */
+            /**
+             * @exception std::invalid_argument If \f$ \textup{to} \not\subset Q \f$
+             */
             std::pair<Builder&, StateIdx> add_state(StateIndices const& to = {}, bool accepting = false) {
                 check_states(to);
 
@@ -823,6 +997,9 @@ namespace tfl {
                 return { *this, state_count()-1 };
             }
 
+            /**
+             * @exception std::invalid_argument If \f$ \textup{to} \not\in Q \f$
+             */
             std::pair<Builder&, StateIdx> add_state(StateIdx const& to, bool accepting = false) {
                 return add_state(StateIndices{to}, accepting);
             }
@@ -830,13 +1007,27 @@ namespace tfl {
             std::pair<Builder&, StateIdx> add_state(bool accepting) {
                 return add_state(StateIndices{}, accepting);
             }
+            ///@}
 
+            /**
+             * @name Acceptance setters
+             * @return This.
+             * @{
+             */
+            /**
+             * @brief Sets whether \f$ \textup{state} \in F \f$.
+             * @exception std::invalid_argument If \f$ \textup{state} \not\in Q \f$
+             */
             Builder& set_acceptance(StateIdx const& state, bool value) {
                 check_state(state);
                 _accepting_states[state] = value;
                 return *this;
             }
 
+            /**
+             * @brief Sets whether \f$ \textup{states} \subset F \f$.
+             * @exception std::invalid_argument If \f$ \textup{states} \not\subset Q \f$
+             */
             template<range R>
             Builder& set_acceptance(R&& states, bool value) {
                 for(auto state: states) {
@@ -846,18 +1037,24 @@ namespace tfl {
                 return *this;
             }
 
+            /**
+             * @brief Sets whether \f$ \textup{states} \subset F \f$.
+             * @exception std::invalid_argument If \f$ \textup{states} \not\subset Q \f$
+             */
             Builder& set_acceptance(std::initializer_list<T> states, bool value) {
                 return set_acceptance<std::initializer_list<T>&>(states, value);
             }
+            ///@}
 
-            Builder& add_transition(StateIdx const& state, T const& input, StateIdx const& to) {
-                check_state(state);
-                check_input(input);
-                check_state(to);
-                _transitions[input][state].insert(to);
-                return *this;
-            }
-
+            /**
+             * @name Transition addition
+             * @brief Adds \f$ \textup{to} \f$ to \f$ \delta(\textup{state}, x) \f$.
+             * @return This.
+             * @exception std::invalid_argument If \f$ \textup{state} \not\in Q \f$
+             * or \f$ x \not\in T^{-} \f$
+             * or \f$ \textup{to} \not\subset Q \f$
+             * @{
+             */
             template<range R>
             Builder& add_transitions(StateIdx const& state, T const& input, R&& to) {
                 check_state(state);
@@ -867,6 +1064,27 @@ namespace tfl {
                 return *this;
             }
 
+            Builder& add_transitions(StateIdx const& state, std::initializer_list<StateIdx> to) {
+                return add_transitions<std::initializer_list<StateIdx>&>(state, to);
+            }
+
+            Builder& add_transition(StateIdx const& state, T const& input, StateIdx const& to) {
+                check_state(state);
+                check_input(input);
+                check_state(to);
+                _transitions[input][state].insert(to);
+                return *this;
+            }
+            ///@}
+
+            /**
+             * @name ε-transition addition
+             * @brief Adds \f$ \textup{to} \f$ to \f$ \delta(\textup{state}, \varepsilon) \f$.
+             * @return This.
+             * @exception std::invalid_argument If \f$ \textup{state} \not\in Q \f$
+             * or \f$ \textup{to} \not\subset Q \f$
+             * @{
+             */
             template<range R>
             Builder& add_epsilon_transitions(StateIdx const& state, R&& to) {
                 check_state(state);
@@ -885,7 +1103,16 @@ namespace tfl {
                 _epsilon_transitions[state].insert(to);
                 return *this;
             }
+            ///@}
 
+            /**
+             * @name UNKNOWN-transition addition
+             * @brief Adds \f$ \textup{to} \f$ to \f$ \delta(\textup{state}, \textsc{UNKNOWN}) \f$.
+             * @return This.
+             * @exception std::invalid_argument If \f$ \textup{state} \not\in Q \f$
+             * or \f$ \textup{to} \not\subset Q \f$
+             * @{
+             */
             template<range R>
             Builder& add_unknown_transitions(StateIdx const& state, R&& to) {
                 check_state(state);
@@ -904,7 +1131,11 @@ namespace tfl {
                 _unknown_transitions[state].insert(to);
                 return *this;
             }
+            ///@}
 
+            /**
+             * @brief Returns all states reachable from `state` using only ε-transitions.
+             */
             StateIndices epsilon_closure(StateIdx state) const {
                 std::queue<StateIdx> queue;
                 queue.push(state);
@@ -924,6 +1155,9 @@ namespace tfl {
                 return closure;
             }
 
+            /**
+             * @brief Removes all ε-transitions without changing the language \f$ \mathcal{L} \f$.
+             */
             Builder& epsilon_elimination() {
                 for(StateIdx i = 0; i < state_count(); ++i) {
                     for(StateIdx j: epsilon_closure(i)) {
@@ -944,6 +1178,10 @@ namespace tfl {
                 return *this;
             }
 
+            /**
+             * @brief Integrate another NFA into this one.
+             * @return This and the the new index of `that` initial state.
+             */
             std::pair<Builder&, StateIdx> meld(Builder const& that) {
                 for(auto input: that.inputs()) {
                     add_input(input);
@@ -967,6 +1205,11 @@ namespace tfl {
                 return { *this, offset };
             }
 
+            /**
+             * @name NFA finalization
+             * @brief Builds the NFA.
+             * @{
+             */
             NFA finalize() const {
                 if(state_count() == 0) {
                     throw std::invalid_argument("A NFA must have at least one state.");
@@ -983,7 +1226,15 @@ namespace tfl {
             operator NFA() const {
                 return finalize();
             }
+            ///@}
 
+            /**
+             * @name Make deterministic
+             * @brief Transforms this builder into a builder for an equivalent NFA.
+             *
+             * Undefined transitions are set to the dead state.
+             * @{
+             */
             DFA<T>::Builder make_deterministic() {
                 epsilon_elimination();
 
@@ -1082,6 +1333,7 @@ namespace tfl {
             operator DFA<T>::Builder() const {
                 return make_deterministic();
             } 
+            ///@}
         };
 
     };
