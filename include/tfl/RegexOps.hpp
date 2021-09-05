@@ -455,9 +455,17 @@ namespace tfl {
     /**
      * @brief Derives a regex w.r.t some literal.
      * 
+     * The derivative of some regex \f$ R \f$ with respect to
+     * some literal \f$ x \in \Sigma \f$ is another regex verifying
+     * \f[ \mathcal{L}(\delta_x(R)) = \left\{ w \mid xw \in \mathcal{L}(R) \right\} \f]
+     *
      * @tparam Eq Function-object defining literal equality.
      * @param x The literal to use for derivation.
      * @param regex The regex to derive.
+     *
+     * @see This <a href="https://www.ccs.neu.edu/home/turon/re-deriv.pdf">paper</a>
+     * (S. Owens, J. Reppy, A. Turon, *Regular-expression derivatives reexamined*)
+     * for more information on regex derivation.
      */
     template<typename T, class Eq = std::equal_to<T>>
     inline Regex<T> derive(T const& x, Regex<T> const& regex) {

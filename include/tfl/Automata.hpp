@@ -12,21 +12,65 @@
 
 #include "tfl/Stringify.hpp"
 
+/**
+ * @brief Contains the definition of DFAs and NFAs.
+ * @file
+ */
+
 namespace tfl {
 
     namespace {
         using namespace std::ranges;
     }
 
-
     template<typename T>
     class NFA;
 
+    /**
+     * @brief <a href=https://en.wikipedia.org/wiki/Deterministic_finite_automaton>DFA</a>.
+     * 
+     * This implementation uses a definition slightly different than the classic one.
+     * A DFA is defined as a 5-tuple consisting of:
+     * - The states \f$ Q = [0,1,\ldots,n, \textsc{DEAD}] \f$;
+     * - The alphabet \f$ \Sigma = T^{-} \cup \textsc{UNKNOWN} \f$;
+     * - The transition function \f$ \delta: Q \times \Sigma \longmapsto Q \f$;
+     * - The initial state \f$ q_0 = 0 \f$;
+     * - The accepting states \f$ F \subset Q \f$.
+     *
+     * where \f$ T^{-} \subset T \f$.
+     *
+     * Even though \f$ \Sigma \not= T \f$, the automata works with any sequence
+     * in \f$ T^{*} \f$ by mapping every value in \f$ x \in T \f$ to \f$ x \f$
+     * if \f$ x \in T^{-} \f$ and to \f$ \textsc{UNKNOWN} \f$ otherwise.
+     *
+     * The differences with the standard definition are:
+     * - The states are designed by (unsigned) integers: this isn't a huge limitation and makes it more efficient;
+     * - The dead state: is defined as an additional special state to allow early return when matching a string;
+     * - The unknown transition and \f$ T^{-} \f$: allows to define the automaton on all values of type `T` without specifying every value;
+     * - Default initial state: the initial state is always the state 0. Sorry but this was convenient.
+     *
+     * The DFA defines a language 
+     * \f$ \mathcal{L} = \left\{ w \in \Sigma^* \mid \Delta(0 \times w) \in F \right\} \f$
+     * where \f$ \Delta: Q \times \Sigma^* \longmapsto Q \f$ is the extended transition function
+     * defined by
+     * - \f$ \Delta(i \times \varepsilon) = i \f$;
+     * - \f$ \Delta(i \times x \mathbin{::} w) = \Delta(\delta(i \times x) \times w) \f$.
+     *
+     * @tparam T Type of the alphabet.
+     */
     template<typename T>
     class DFA final {
     public:
+        /** 
+         * @brief Type used to represent states. 
+         * @hideinitializer
+         */
         using StateIdx = std::size_t;
 
+        /** 
+         * @brief Index of the dead state. 
+         * @hideinitializer
+         */
         static constexpr StateIdx const DEAD_STATE = std::numeric_limits<StateIdx>::max();
 
     private:
@@ -73,47 +117,73 @@ namespace tfl {
         }
 
     public:
+        /**
+         * @brief Returns the number of states. The dead state is not counted.
+         */
         StateIdx state_count() const {
             return _unknown_transitions.size();
         }
 
+        /**
+         * @brief Tests whether \f$ \textup{state} \in F\f$.
+         */
         bool is_accepting(StateIdx const& state) const {
             return (state == DEAD_STATE) ? false : _accepting_states[check_ns_state(state)];
         }
 
-        StateIdx transition(StateIdx const& current, T const& value) const {
-            if(current == DEAD_STATE) {
+        /**
+         * @brief Returns \f$ \delta(\textup{state} \times x) \f$.
+         *
+         * If \f$ x \not\in T^{-} \f$, this is equivalent to \ref unknown_transition().
+         *
+         * @exception std::invalid_argument If \f$ x \not\in Q \f$
+         */
+        StateIdx transition(StateIdx const& state, T const& x) const {
+            if(state == DEAD_STATE) {
                 return DEAD_STATE;
             }
 
-            check_ns_state(current);
+            check_ns_state(state);
 
-            auto it =  _transitions.find(value);
+            auto it =  _transitions.find(x);
             if(it != _transitions.cend()) {
-                return it->second[current];
+                return it->second[state];
             }
             else {
-                return _unknown_transitions[current];
+                return _unknown_transitions[state];
             }
         }
 
-        StateIdx unknown_transition(StateIdx const& current) const {
-            if(current == DEAD_STATE) {
+        /**
+         * @brief Returns \f$ \delta(\textup{state} \times \textsc{UNKNOWN}) \f$.
+         * @exception std::invalid_argument If \f$ x \not\in Q \f$
+         */
+        StateIdx unknown_transition(StateIdx const& state) const {
+            if(state == DEAD_STATE) {
                 return DEAD_STATE;
             }
 
-            return _unknown_transitions[check_ns_state(current)];
+            return _unknown_transitions[check_ns_state(state)];
         }
 
+        /**
+         * @brief Returns \f$ T^{-} \f$.
+         */
         auto inputs() const {
             return transform_view(_transitions, [](auto p){ return p.first; });
         }
 
+        /**
+         * @brief Tests whether \f$ \textup{sequence} \in \mathcal{L} \f$
+         * 
+         * @tparam R Type of the input sequence.
+         * @param sequence The sequence to test for language-membership.
+         */
         template<range R>
-        bool accepts(R&& range) const {
+        bool accepts(R&& sequence) const {
             StateIdx state = 0;
             for(
-                auto beg = range.begin(), end = range.end(); 
+                auto beg = sequence.begin(), end = sequence.end(); 
                 (beg != end) && (state != DEAD_STATE); 
                 ++beg
             ) {
@@ -123,18 +193,35 @@ namespace tfl {
             return is_accepting(state);
         }
 
-        bool accepts(std::initializer_list<T> ls) const {
-            return accepts<std::initializer_list<T>&>(ls);
+        /**
+         * @brief Tests whether \f$ \textup{sequence} \in \mathcal{L} \f$
+         * @see \ref accepts<R>()
+         */
+        bool accepts(std::initializer_list<T> sequence) const {
+            return accepts<std::initializer_list<T>&>(sequence);
         }
 
+        /**
+         * @brief Find the length of the longest prefix accepted.
+         *
+         * Formally, given a sequence \f$ (x_1, x_2, \ldots, x_n) \f$ returns 
+         * \f$ \max \left\{ l \mid (x_1, x_2, \ldots, x_l) \in \mathcal{L} \right\} \f$
+         * 
+         * @tparam R Type of the input sequence.
+         * @param sequence The sequence to munch.
+         * @return Empty if no prefix belongs to the language, otherwise the length of the longest prefix.
+         *
+         * @note The returned length is never 0, even if \f$ \varepsilon \in \mathcal{L} \f$ (empty is returned instead).
+         * @todo Remove behavior mentioned in note above.
+         */
         template<range R>
-        std::optional<std::size_t> munch(R&& range) const {
+        std::optional<std::size_t> munch(R&& sequence) const {
             StateIdx state = 0;
             std::size_t step = 0;
             std::optional<std::size_t> res(std::nullopt);
 
             for(
-                auto beg = range.begin(), end = range.end(); 
+                auto beg = sequence.begin(), end = sequence.end(); 
                 (beg != end) && (state != DEAD_STATE); 
                 ++beg
             ) {
@@ -149,10 +236,17 @@ namespace tfl {
             return res;
         }
 
-        std::optional<std::size_t> munch(std::initializer_list<T> ls) const {
-            return munch<std::initializer_list<T>&>(ls);
+        /**
+         * @brief Find the length of the longest prefix accepted.
+         * @see \ref munch<R>()
+         */
+        std::optional<std::size_t> munch(std::initializer_list<T> sequence) const {
+            return munch<std::initializer_list<T>&>(sequence);
         }
 
+        /**
+         * @brief Allow DFA creation.
+         */
         class Builder final {
             using OptStateIdx = std::optional<StateIdx>;
 
@@ -411,10 +505,56 @@ namespace tfl {
         };
     };
 
+
+    /**
+     * @brief <a href=https://en.wikipedia.org/wiki/Nondeterministic_finite_automaton>NFA-ε</a>.
+     * 
+     * This implementation uses a definition slightly different than the classic one.
+     * A NFA-ε is defined as a 5-tuple consisting of:
+     * - The states \f$ Q = [0,1,\ldots,n] \f$;
+     * - The alphabet \f$ \Sigma = T^{-} \cup \textsc{UNKNOWN} \f$;
+     * - The transition function \f$ \delta: Q \times (\Sigma \cup \varepsilon) \longmapsto \mathcal{P}(Q) \f$;
+     * - The initial state \f$ q_0 = 0 \f$;
+     * - The accepting states \f$ F \subset Q \f$.
+     *
+     * where \f$ T^{-} \subset T \f$.
+     *
+     * Even though \f$ \Sigma \not= T \f$, the automata works with any sequence
+     * in \f$ T^{*} \f$ by mapping every value in \f$ x \in T \f$ to \f$ x \f$
+     * if \f$ x \in T^{-} \f$ and to \f$ \textsc{UNKNOWN} \f$ otherwise.
+     *
+     * The differences with the standard definition are:
+     * - The states are designed by (unsigned) integers: this isn't a huge limitation and makes it more efficient;
+     * - The unknown transition and \f$ T^{-} \f$: allows to define the automaton on all values of type `T` without specifying every value;
+     * - Default initial state: the initial state is always the state 0. Sorry but this was convenient.
+     *
+     * The NFA-ε defines a language 
+     * \f$ \mathcal{L} = \left\{ w \in \Sigma^* \mid \Delta(\{0\} \times w) \in F \right\} \f$
+     * where \f$ \Delta: \mathcal{P}(Q) \times \Sigma^* \longmapsto \mathcal{P}(Q) \f$ is the extended transition function
+     * defined by
+     * - \f$ \Delta(S \times \varepsilon) = S \f$;
+     * - \f$ \Delta(S \times x \mathbin{::} w) = \Delta\left(\left(\bigcup\limits_{i \in S} \delta(s \times x) \right) \times w\right) \f$.
+     *
+     * Note that in order to be correct, the above definition requires some ε-closures which were 
+     * omited for brevity.
+     *
+     * @tparam T Type of the alphabet.
+     *
+     * @warning This class could be reduced from NFA-ε into NFA for both simplicity and efficiency. 
+     * The Builder would convert the NFA-ε into an NFA (i.e. the builder's interface would stay the same).
+     */
     template<typename T>
     class NFA {
     public:
+        /** 
+         * @brief Type used to represent states. 
+         * @hideinitializer
+         */
         using StateIdx = std::size_t;
+        /** 
+         * @brief Type used to represent a set of states. 
+         * @hideinitializer
+         */
         using StateIndices = std::set<StateIdx>;
 
     private:
@@ -468,51 +608,84 @@ namespace tfl {
         }
 
     public:
+        /**
+         * @brief Returns the number of states. The dead state is not counted.
+         */
         StateIdx state_count() const {
             return _unknown_transitions.size();
         }
 
+        /**
+         * @brief Tests whether \f$ \textup{state} \in F\f$.
+         */
         bool is_accepting(StateIdx const& state) const {
             return _accepting_states[check_state(state)];
         }
 
-        StateIndices transition(StateIdx const& current, T const& value) const {
-            check_state(current);
+        /**
+         * @brief Returns \f$ \delta(\textup{state} \times x) \f$.
+         *
+         * If \f$ x \not\in T^{-} \f$, this is equivalent to \ref unknown_transition().
+         *
+         * @exception std::invalid_argument If \f$ x \not\in Q \f$
+         */
+        StateIndices transition(StateIdx const& state, T const& value) const {
+            check_state(state);
 
             auto it =  _transitions.find(value);
             if(it != _transitions.cend()) {
-                return it->second[current];
+                return it->second[state];
             }
             else {
-                return _unknown_transitions[current];
+                return _unknown_transitions[state];
             }
         }
 
+        /**
+         * @brief Returns \f$ \delta(\textup{state} \times \varepsilon) \f$.
+         * @exception std::invalid_argument If \f$ x \not\in Q \f$
+         */
         StateIndices epsilon_transition(StateIdx const& current) const {
             return _epsilon_transitions[check_state(current)];
         }
 
+        /**
+         * @brief Returns \f$ \delta(\textup{state} \times \textsc{UNKNOWN}) \f$.
+         * @exception std::invalid_argument If \f$ x \not\in Q \f$
+         */
         StateIndices unknown_transition(StateIdx const& current) const {
             return _unknown_transitions[check_state(current)];
         }
 
+        /**
+         * @brief Returns \f$ T^{-} \f$.
+         */
         auto inputs() const {
             return transform_view(_transitions, [](auto p){ return p.first; });
         }
 
+        /**
+         * @brief Tests whether the NFA has ε-transitions.
+         */
         bool has_epsilon_transitions() const {
             return any_of(_epsilon_transitions, [](auto s){ return !s.empty(); });
         }
 
+        /**
+         * @brief Tests whether \f$ \textup{sequence} \in \mathcal{L} \f$
+         * 
+         * @tparam R Type of the input sequence.
+         * @param sequence The sequence to test for language-membership.
+         */
         template<range R>
-        bool accepts(R&& range) const {
+        bool accepts(R&& sequence) const {
             StateIndices current;
             current.insert(0);
 
             epsilon_closure(current);
 
             for(
-                auto beg = range.begin(), end = range.end(); 
+                auto beg = sequence.begin(), end = sequence.end(); 
                 beg != end; 
                 ++beg
             ) {
@@ -531,10 +704,18 @@ namespace tfl {
             return any_of(current, [this](auto s){ return this->is_accepting(s); });
         }
 
-        bool accepts(std::initializer_list<T> ls) const {
-            return accepts<std::initializer_list<T>&>(ls);
+        /**
+         * @brief Tests whether \f$ \textup{sequence} \in \mathcal{L} \f$
+         * @see \ref accepts<R>()
+         */
+        bool accepts(std::initializer_list<T> sequence) const {
+            return accepts<std::initializer_list<T>&>(sequence);
         }
 
+
+        /**
+         * @brief Allow NFA creation.
+         */
         class Builder final {
             using OptStateIdx = std::optional<StateIdx>;
 

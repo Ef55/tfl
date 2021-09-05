@@ -33,11 +33,14 @@ namespace tfl {
      * - Complement(Regex);
      * - Conjunction(Regex, Regex).
      *
-     * Pattern matching can be performed using \ref matchers::Base in conjunction with \ref match().
+     * Pattern matching can be performed using \ref matchers::Base in conjunction with \ref Regex::match().
      *
      * Note that this implementation only sees regexes as a "binary-tree-like structure",
-     * which defines accepted/rejected sequences, but not as a direct tool to match sequences of literals.
+     * which define a set of accepted/rejected sequences, but not as a direct tool to match sequences of literals.
      * This can then be performed using regex derivation, DFAs or NFAs.
+     *
+     * More formally, a regex \f$ R \f$ defines a set of strings \f$ \mathcal{L}(R) \subset \Sigma^* \f$,
+     * but no direct way to test whether \f$ s \in \mathcal{L}(R) \f$ where \f$ s \in \Sigma^* \f$.
      * 
      * @tparam T Type of literals.
      *

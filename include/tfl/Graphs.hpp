@@ -5,6 +5,11 @@
 #include "RegexOps.hpp"
 #include "Automata.hpp"
 
+/**
+ * @brief Contains functions to generate graphs.
+ * @file
+ */
+
 namespace {
     static constexpr char const* NORMAL_STATE_SHAPE = "circle";
     static constexpr char const* ACCEPTING_STATE_SHAPE = "doublecircle";
@@ -83,6 +88,25 @@ namespace {
 
 namespace tfl {
 
+    /**
+     * @name Dot graphs generation
+     * @brief Generates a dot graph which can then be outputed.
+     * 
+     * The graph is outputed as plaintext in <a href="https://www.graphviz.org/about/">Graphviz/Dot</a> format.
+     *
+     * @note These functions are only used to indicate that the subsequent
+     * call to `operator<<` should output a graph. This implies that the actual
+     * computation of the graph only happens when `operator<<` is called, and that
+     * the return of this function should not be used in any other way 
+     * (e.g. it should not be stored inside a variable).
+     * \code{.cpp}
+     * // Correct usage:
+     * std::cout << dot_graph(regex) << std::endl;
+     * \endcode
+     *
+     * @{
+     */
+
     template<typename T>
     auto dot_graph(Regex<T> const& regex) {
         return GraphWrapper<Regex<T>>(regex);
@@ -97,8 +121,14 @@ namespace tfl {
     auto dot_graph(NFA<T> const& nfa) {
         return GraphWrapper<NFA<T>>(nfa);
     }
+    ///@}
 }
 
+/**
+ * @name Graphs output
+ * @brief Outputs a graph to a stream.
+ * @{
+ */
 
 template<typename T>
 std::ostream& operator<<(std::ostream& stream, GraphWrapper<tfl::Regex<T>> const& wregex) {
@@ -168,3 +198,4 @@ std::ostream& operator<<(std::ostream& stream, GraphWrapper<tfl::NFA<T>> const& 
 
     return stream;
 }
+///@}
