@@ -198,7 +198,7 @@ namespace tfl {
          * @see \ref accepts<R>()
          */
         bool accepts(std::initializer_list<T> sequence) const {
-            return accepts<std::initializer_list<T>&>(sequence);
+            return accepts(views::all(sequence));
         }
 
         /**
@@ -241,7 +241,7 @@ namespace tfl {
          * @see \ref munch<R>()
          */
         std::optional<std::size_t> munch(std::initializer_list<T> sequence) const {
-            return munch<std::initializer_list<T>&>(sequence);
+            return munch(views::all(sequence));
         }
 
         /**
@@ -424,7 +424,7 @@ namespace tfl {
              * @exception std::invalid_argument If \f$ \textup{states} \not\subset Q \f$.
              */
             Builder& set_acceptance(std::initializer_list<T> states, bool value) {
-                return set_acceptance<std::initializer_list<T>&>(states, value);
+                return set_acceptance(views::all(states), value);
             }
             ///@}
 
@@ -557,7 +557,7 @@ namespace tfl {
 
                 return DFA(
                     transform_view(
-                        subrange(_transitions.cbegin(), _transitions.cend()),
+                        views::all(_transitions),
                         [](auto p){ 
                             std::vector<StateIdx> transitions;
                             std::transform(
@@ -570,7 +570,7 @@ namespace tfl {
                         }
                     ),
                     transform_view(
-                        subrange(_unknown_transitions.cbegin(), _unknown_transitions.cend()), 
+                        views::all(_unknown_transitions), 
                         [](auto o){ return o.value(); }
                     ),
                     _accepting_states
@@ -827,7 +827,7 @@ namespace tfl {
          * @see \ref accepts<R>()
          */
         bool accepts(std::initializer_list<T> sequence) const {
-            return accepts<std::initializer_list<T>&>(sequence);
+            return accepts(views::all(sequence));
         }
 
 
@@ -1042,7 +1042,7 @@ namespace tfl {
              * @exception std::invalid_argument If \f$ \textup{states} \not\subset Q \f$
              */
             Builder& set_acceptance(std::initializer_list<T> states, bool value) {
-                return set_acceptance<std::initializer_list<T>&>(states, value);
+                return set_acceptance(views::all(states), value);
             }
             ///@}
 
@@ -1064,16 +1064,16 @@ namespace tfl {
                 return *this;
             }
 
-            Builder& add_transitions(StateIdx const& state, std::initializer_list<StateIdx> to) {
-                return add_transitions<std::initializer_list<StateIdx>&>(state, to);
-            }
-
             Builder& add_transition(StateIdx const& state, T const& input, StateIdx const& to) {
                 check_state(state);
                 check_input(input);
                 check_state(to);
                 _transitions[input][state].insert(to);
                 return *this;
+            }
+
+            Builder& add_transitions(StateIdx const& state, std::initializer_list<StateIdx> to) {
+                return add_transitions(state, views::all(to));
             }
             ///@}
 
@@ -1094,7 +1094,7 @@ namespace tfl {
             }
 
             Builder& add_epsilon_transitions(StateIdx const& state, std::initializer_list<StateIdx> to) {
-                return add_epsilon_transitions<std::initializer_list<StateIdx>&>(state, to);
+                return add_epsilon_transitions(state, views::all(to));
             }
 
             Builder& add_epsilon_transition(StateIdx const& state, StateIdx to) {
@@ -1121,15 +1121,15 @@ namespace tfl {
                 return *this;
             }
 
-            Builder& add_unknown_transitions(StateIdx const& state, std::initializer_list<StateIdx> to) {
-                return add_unknown_transitions<std::initializer_list<StateIdx>&>(state, to);
-            }
-
             Builder& add_unknown_transition(StateIdx const& state, StateIdx to) {
                 check_state(state);
                 check_state(to);
                 _unknown_transitions[state].insert(to);
                 return *this;
+            }
+
+            Builder& add_unknown_transitions(StateIdx const& state, std::initializer_list<StateIdx> to) {
+                return add_unknown_transitions(state, views::all(to));
             }
             ///@}
 

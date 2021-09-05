@@ -169,7 +169,7 @@ namespace tfl {
 
         public:
             template<std::ranges::range Range>
-            SimpleDerivationLexer(Range&& rules, Regex<T> newline = Regex<T>::empty()): _rules(std::forward<Range>(rules)), _nl(newline) {}
+            SimpleDerivationLexer(Range&& rules, Regex<T> newline = Regex<T>::empty()): _rules(rules.begin(), rules.end()), _nl(newline) {}
         };
 
         template<typename T, typename R, container<T> Word = std::vector<T>>
@@ -288,11 +288,11 @@ namespace tfl {
         }
 
         static Lexer<T, Positioned<R>, Word> make_derivation_lexer(std::initializer_list<Rule<Regex<T>, R, Word>> rules, Regex<T> newline = Regex<T>::empty()) {
-            return make_derivation_lexer<std::initializer_list<Rule<Regex<T>, R, Word>>&>(rules, newline);
+            return make_derivation_lexer(views::all(rules), newline);
         }
 
         static Lexer<T, Positioned<R>, Word> make_dfa_lexer(std::initializer_list<Rule<Regex<T>, R, Word>> rules, Regex<T> newline = Regex<T>::empty()) {
-            return make_dfa_lexer<std::initializer_list<Rule<Regex<T>, R, Word>>&>(rules, newline);
+            return make_dfa_lexer(views::all(rules), newline);
         }
 
         [[deprecated]]
