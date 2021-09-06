@@ -58,7 +58,7 @@ namespace tfl {
         range_of<R, V> &&
         std::default_initializable<R> && 
         std::copy_constructible<R> && 
-        requires(R r, V&& v){ r.push_back(v); };
+        requires(R r, V&& v){ r.push_back(std::forward<V>(v)); };
 
 
 
