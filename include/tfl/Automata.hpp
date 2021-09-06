@@ -1008,8 +1008,8 @@ namespace tfl {
              * @brief Adds a new state \f$ i \f$.
              * 
              * @param to The initial value of \f$ \delta(i, x) \forall x \in (\Sigma \cup \textsc{UNKNOWN}) \f$.
-             * @param accepting whether \f$ i \in F \f$.
-             * @return  This, as well as the new state's index, \f$ i \f$.
+             * @param accepting Whether \f$ i \in F \f$.
+             * @return  This and the new state's index, \f$ i \f$.
              * @{
              */
             /**
@@ -1085,20 +1085,20 @@ namespace tfl {
              * or \f$ \textup{to} \not\subset Q \f$
              * @{
              */
+            Builder& add_transition(StateIdx const& state, T const& input, StateIdx const& to) {
+                check_state(state);
+                check_input(input);
+                check_state(to);
+                _transitions[input][state].insert(to);
+                return *this;
+            }
+
             template<range_of<StateIdx> R>
             Builder& add_transitions(StateIdx const& state, T const& input, R&& to) {
                 check_state(state);
                 check_input(input);
                 check_states(to);
                 _transitions[input][state].insert(std::ranges::cbegin(to), std::ranges::cend(to));
-                return *this;
-            }
-
-            Builder& add_transition(StateIdx const& state, T const& input, StateIdx const& to) {
-                check_state(state);
-                check_input(input);
-                check_state(to);
-                _transitions[input][state].insert(to);
                 return *this;
             }
 
@@ -1115,6 +1115,13 @@ namespace tfl {
              * or \f$ \textup{to} \not\subset Q \f$
              * @{
              */
+            Builder& add_epsilon_transition(StateIdx const& state, StateIdx to) {
+                check_state(state);
+                check_state(to);
+                _epsilon_transitions[state].insert(to);
+                return *this;
+            }
+
             template<range_of<StateIdx> R>
             Builder& add_epsilon_transitions(StateIdx const& state, R&& to) {
                 check_state(state);
@@ -1126,13 +1133,6 @@ namespace tfl {
             Builder& add_epsilon_transitions(StateIdx const& state, std::initializer_list<StateIdx> to) {
                 return add_epsilon_transitions(state, views::all(to));
             }
-
-            Builder& add_epsilon_transition(StateIdx const& state, StateIdx to) {
-                check_state(state);
-                check_state(to);
-                _epsilon_transitions[state].insert(to);
-                return *this;
-            }
             ///@}
 
             /**
@@ -1143,18 +1143,18 @@ namespace tfl {
              * or \f$ \textup{to} \not\subset Q \f$
              * @{
              */
+            Builder& add_unknown_transition(StateIdx const& state, StateIdx to) {
+                check_state(state);
+                check_state(to);
+                _unknown_transitions[state].insert(to);
+                return *this;
+            }
+
             template<range_of<StateIdx> R>
             Builder& add_unknown_transitions(StateIdx const& state, R&& to) {
                 check_state(state);
                 check_states(to);
                 _unknown_transitions[state].insert(std::ranges::cbegin(to), std::ranges::cend(to));
-                return *this;
-            }
-
-            Builder& add_unknown_transition(StateIdx const& state, StateIdx to) {
-                check_state(state);
-                check_state(to);
-                _unknown_transitions[state].insert(to);
                 return *this;
             }
 
