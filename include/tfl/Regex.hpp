@@ -19,32 +19,38 @@
 namespace tfl {
     
     /**
-     * @brief %Regex.
+     * @brief <a href="https://en.wikipedia.org/wiki/Regular_expression">Regular expression</a>.
      *
-     * Implemented in a <a href="https://en.wikipedia.org/wiki/Algebraic_data_type">ADT</a>-like fashion. 
-     * The "constructors" are:
-     * - Empty;
-     * - Epsilon;
-     * - Alphabet;
-     * - Literal(T);
-     * - Disjunction(Regex, Regex);
-     * - Sequence(Regex, Regex);
-     * - KleeneStar(Regex);
-     * - Complement(Regex);
-     * - Conjunction(Regex, Regex).
+     * %Regexes (<b>Reg</b>ular <b>Ex</b>pression<b>s</b>) are a handy tool to define sets of strings, using some base sets and 5 operators.
+     * More formally, a regex \f$ r \f$ on some alphabet \f$ \Sigma \f$ defines a set of strings \f$ \mathcal{L}(r) \subset \Sigma^* \f$
+     * called its language.
      *
+     * The constructors (basic sets and operators) are (format: *Name(arguments...): math-notation function-name*):
+     * - *Empty*: \f$ \emptyset \f$ \ref empty();
+     * - *Epsilon*: \f$ \varepsilon \f$ \ref epsilon();
+     * - *Alphabet*: \f$ \Sigma \f$ \ref alphabet();
+     * - *Literal(T)*: \f$ a \f$ \ref literal();
+     * - *Disjunction(Regex, Regex)*: \f$ \mathbin{|} \f$ \ref operator|();
+     * - *Sequence(Regex, Regex)*: \f$ \cdot \f$ \ref operator-();
+     * - *KleeneStar(Regex)*: \f$ * \f$ \ref operator*();
+     * - *Complement(Regex)*: \f$ \neg \f$ \ref operator~();
+     * - *Conjunction(Regex, Regex)*: \f$ \mathbin{\&} \f$ \ref operator&().
+     *
+     * This class is implemented in a <a href="https://en.wikipedia.org/wiki/Algebraic_data_type">ADT</a>-like fashion. 
      * Pattern matching can be performed using \ref matchers::Base in conjunction with \ref Regex::match().
      *
      * Note that this implementation only sees regexes as a "binary-tree-like structure",
-     * which define a set of accepted/rejected sequences, but not as a direct tool to match sequences of literals.
+     * which define a language, and as such does not provide methods to test a string for language-membership.
      * This can then be performed using regex derivation, DFAs or NFAs.
      *
-     * More formally, a regex \f$ R \f$ defines a set of strings \f$ \mathcal{L}(R) \subset \Sigma^* \f$,
-     * but no direct way to test whether \f$ s \in \mathcal{L}(R) \f$ where \f$ s \in \Sigma^* \f$.
-     * 
-     * @tparam T Type of literals.
+     * @note **The constructors are smart constructors**: \n
+     * Two different regexes \f$ r_1 \not= r_2 \f$ are considered equivalent, noted \f$ r_1 \equiv r_2 \f$, if \f$ \mathcal{L}(r_1) = \mathcal{L}(r_2) \f$. \n 
+     * The constructors are allowed (and will) sometimes return a different (yet equivalent) regex from the one which should have been built. \n 
+     * The used equivalences will be specified in the documentation of each constructor.
      *
-     * @see \ref derive() for regex derivation.
+     * @tparam T Type of literals, \f$ \equiv \Sigma \f$.
+     *
+     * @see \ref RegexOps.hpp for regex derivation.
      * @see \ref DFA for DFAs.
      * @see \ref NFA for NFAs.
      *
@@ -114,7 +120,7 @@ namespace tfl {
 
     public:
         /**
-        * @brief Type of literals (Equivalent to template T).
+        * @brief Type of literals (Equivalent to template T)
         */
         using TokenType = T;
 
@@ -125,7 +131,7 @@ namespace tfl {
          */
 
         /**
-         * @brief Constructs an empty regex.
+         * @brief \f$ \mathcal{L} = \left\{ \right\} \f$
          */
         static Regex empty() {
             static Regex const empty{Empty{}};
@@ -133,7 +139,7 @@ namespace tfl {
         }
 
         /**
-         * @brief Constructs an epsilon regex.
+         * @brief \f$ \mathcal{L} = \left\{ \varepsilon \right\} \f$
          */
         static Regex epsilon() {
             static Regex epsilon{Epsilon{}};
@@ -141,7 +147,7 @@ namespace tfl {
         }
 
         /**
-         * @brief Constructs an alphabet regex.
+         * @brief \f$ \mathcal{L} = \Sigma \f$
          */
         static Regex alphabet() {
             static Regex alpha{Alphabet{}};
@@ -149,14 +155,20 @@ namespace tfl {
         }
 
         /**
-         * @brief Constructs a literal regex.
+         * @brief \f$ \mathcal{L} = \left\{ a \right\} \f$
          */
-        static Regex literal(T const& lit) {
-            return Regex{Literal(lit)};
+        static Regex literal(T const& a) {
+            return Regex{Literal(a)};
         }
 
         /**
-         * @brief Constructs the disjunction of `this` and `that` regex.
+         * @brief \f$ \mathcal{L} = \mathcal{L}(\textup{this}) \cup \mathcal{L}(\textup{that}) \f$
+         *
+         * **Used equivalences:**
+         * - \f$ \emptyset \mathbin{|} r \equiv r \f$;
+         * - \f$ r \mathbin{|} \emptyset \equiv r \f$;
+         * - \f$ \Sigma^{*} \mathbin{|} r \equiv \Sigma^{*} \f$;
+         * - \f$ r \mathbin{|} \Sigma^{*} \equiv \Sigma^{*} \f$
          */
         Regex operator|(Regex const& that) const {
             if(is_empty(*this) || is_any(that)) {
@@ -171,7 +183,13 @@ namespace tfl {
         }
 
         /**
-         * @brief Constructs the sequence of `this` and `that` regex.
+         * @brief \f$ \mathcal{L} = \left\{ vw \mid v \in \mathcal{L}(\textup{this}) \textup{ and } v \in \mathcal{L}(\textup{that}) \right\} \f$
+         *
+         * **Used equivalences:**
+         * - \f$ \emptyset \cdot r \equiv \emptyset \f$;
+         * - \f$ r \cdot \emptyset \equiv \emptyset \f$;
+         * - \f$ \varepsilon \cdot r \equiv r \f$;
+         * - \f$ r \cdot \varepsilon \equiv r \f$
          */
         Regex operator-(Regex const& that) const {
             if(is_empty(*this) || is_empty(that)) {
@@ -189,7 +207,15 @@ namespace tfl {
         }
 
         /**
-         * @brief Constructs the closure/repetition/(kleene)star of `this` regex.
+         * @brief \f$ \mathcal{L} = \mathcal{L}(\textup{this})^{*} \f$
+         *
+         * **Used equivalences:**
+         * - \f$ (r^{*})^{*} \equiv r^{*} \f$;
+         * - \f$ \emptyset^{*} \equiv \varepsilon \f$;
+         * - \f$ \varepsilon^{*} \equiv \varepsilon \f$;
+         * - \f$ \Sigma^{*} \equiv \neg\emptyset \f$
+         *
+         * @see <a href="https://en.wikipedia.org/wiki/Kleene_star">Kleene closure</a> on sets.
          */
         Regex operator*() const {
             if(is_kleene_star(*this)) {
@@ -207,7 +233,10 @@ namespace tfl {
         }
 
         /**
-         * @brief Constructs the complement of `this` regex.
+         * @brief @brief \f$ \mathcal{L} = \Sigma^{*} \mathbin{\backslash} \mathcal{L}(\textup{this}) \f$
+         *
+         * **Used equivalences:**
+         * - \f$ \neg\neg r \equiv r \f$;
          */
         Regex operator~() const {
             if(is_complement(*this)) {
@@ -219,7 +248,13 @@ namespace tfl {
         }
 
         /**
-         * @brief Constructs the conjunction of `this` and `that` regex.
+         * @brief @brief \f$ \mathcal{L} = \mathcal{L}(\textup{this}) \cap \mathcal{L}(\textup{that}) \f$
+         *
+         * **Used equivalences:**
+         * - \f$ \emptyset \mathbin{\&} r \equiv \emptyset \f$;
+         * - \f$ r \mathbin{\&} \emptyset \equiv \emptyset \f$;
+         * - \f$ \Sigma^{*} \mathbin{\&} r \equiv r \f$;
+         * - \f$ r \mathbin{\&} \Sigma^{*} \equiv r \f$
          */
         Regex operator&(Regex const& that) const {
             if(is_empty(*this) || is_empty(that)) {
@@ -271,13 +306,12 @@ namespace tfl {
 
         /**
          * @name Additional constructors
+         * @brief Those constructors are defined in terms of the basic ones, so not essentials, but provided for convenience.
          * @{
          */
 
         /**
-         * @brief Constructs a regex matching any sequence.
-         *
-         * \f[ \Sigma^{*} = \neg \emptyset \f] 
+         * @brief \f$ \Sigma^{*} := \neg\emptyset \f$
          */
         static Regex any() {
             static Regex const any{~empty()};
@@ -285,18 +319,14 @@ namespace tfl {
         }
 
         /**
-         * @brief Constructs the kleene plus of `this` regex.
-         *
-         * \f[ r^{+} \equiv rr^{*} \f]
+         * @brief \f$ r^{+} := r \cdot r^{*} \f$
          */
         Regex operator+() const {
             return *this - Regex(KleeneStar(*this));
         }
 
         /**
-         * @brief Constructs the substraction of `that` regex from `this` regex.
-         *
-         * \f[ r_{1} \mathbin{/} r_{2} \equiv r_{1} \mathbin{\&} \neg r_{2} \f]
+         * @brief \f$ r_{1} \mathbin{/} r_{2} \equiv r_{1} \mathbin{\&} \neg r_{2} \f$
          */
         Regex operator/(Regex const& that) const {
             return *this & ~that;

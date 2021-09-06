@@ -54,62 +54,62 @@ namespace tfl {
             virtual inline R operator()(Regex<T> const& regex) const final { return rec(regex); }
 
             /**
-             * @brief Matches the empty regex.
+             * @brief Matches \f$ \emptyset \f$
              */
             virtual R empty() const = 0;
 
             /**
-             * @brief Matches the epsilon regex.
+             * @brief Matches \f$ \varepsilon \f$
              */
             virtual R epsilon() const = 0;
             
             /**
-             * @brief Matches the alphabet regex.
+             * @brief Matches \f$ \Sigma \f$
              */
             virtual R alphabet() const = 0;
             
             /**
-             * @brief Matches a literal regex.
+             * @brief Matches \f$ a \f$
              *
-             * @param literal The literal the regex accepts.
+             * @param literal \f$ a \f$
              */
             virtual R literal(T const& literal) const = 0;
             
             /**
-             * @brief Matches the disjunction of two regexes.
+             * @brief Matches \f$ r_1 \mathbin{|} r_2 \f$
              *
-             * @param left The left part of the disjunction.
-             * @param right The right part of the disjunction.
+             * @param left \f$ r_1 \f$
+             * @param right \f$ r_2 \f$
              */
             virtual R disjunction(Regex<T> const& left, Regex<T> const& right) const = 0;
             
             /**
-             * @brief Matches the sequence of two regexes.
+             * @brief Matches \f$ r_1 \cdot r_2 \f$
              *
-             * @param left The left part of the sequence.
-             * @param right The right part of the sequence.
+             * @param left \f$ r_1 \f$
+             * @param right \f$ r_2 \f$
              */
             virtual R sequence(Regex<T> const& left, Regex<T> const& right) const = 0;
             
             /**
-             * @brief Matches the closure/repetition/(kleene)star of a regex.
+             * @brief Matches \f$ r^{*} \f$
              *
-             * @param regex The closed regex.
+             * @param regex \f$ r \f$
              */
             virtual R kleene_star(Regex<T> const& regex) const = 0;
             
             /**
-             * @brief Matches the complement of a regex.
+             * @brief Matches \f$ \neg r \f$
              *
-             * @param regex The complemented regex.
+             * @param regex \f$ r \f$
              */
             virtual R complement(Regex<T> const& regex) const = 0;
             
             /**
-             * @brief Matches the conjunction of two regexes.
+             * @brief Matches \f$ r_1 \mathbin{\&} r_2 \f$
              *
-             * @param left The left part of the conjunction.
-             * @param right The right part of the conjunction.
+             * @param left \f$ r_1 \f$
+             * @param right \f$ r_2 \f$
              */
             virtual R conjunction(Regex<T> const& left, Regex<T> const& right) const = 0;
         };
@@ -370,52 +370,120 @@ namespace tfl {
     }
 
     /**
-     * @brief Tests whether the regex is the empty regex.
+     * @name Regex structure testers
+     * @{
+     */
+    /**
+     * @brief Tests whether \f$ r = \emptyset \f$
      */
     template<typename T>
-    inline bool is_empty(Regex<T> const& regex) {
-        return regex.match(matchers::is_empty<T>);
+    inline bool is_empty(Regex<T> const& r) {
+        return r.match(matchers::is_empty<T>);
     }
 
     /**
-     * @brief Tests whether the regex is the epsilon regex.
+     * @brief Tests whether \f$ r = \varepsilon \f$
      */
     template<typename T>
-    inline bool is_epsilon(Regex<T> const& regex) {
-        return regex.match(matchers::is_epsilon<T>);
+    inline bool is_epsilon(Regex<T> const& r) {
+        return r.match(matchers::is_epsilon<T>);
     }
 
     /**
-     * @brief Tests whether the regex is the alphabet regex.
+     * @brief Tests whether \f$ r = \Sigma \f$
      */
     template<typename T>
-    inline bool is_alphabet(Regex<T> const& regex) {
-        return regex.match(matchers::is_alphabet<T>);
+    inline bool is_alphabet(Regex<T> const& r) {
+        return r.match(matchers::is_alphabet<T>);
     }
 
     /**
-     * @brief Tests whether the regex is the closure/repetition/(kleene)star of a regex.
+     * @brief Tests whether \f$ r = r_s^{*} \f$
      */
     template<typename T>
-    inline bool is_kleene_star(Regex<T> const& regex) {
-        return regex.match(matchers::is_kleene_star<T>);
+    inline bool is_kleene_star(Regex<T> const& r) {
+        return r.match(matchers::is_kleene_star<T>);
     }
 
     /**
-     * @brief Tests whether the regex is the complement of a regex.
+     * @brief Tests whether \f$ r = \neg r_s \f$
      */
     template<typename T>
-    inline bool is_complement(Regex<T> const& regex) {
-        return regex.match(matchers::is_complement<T>);
+    inline bool is_complement(Regex<T> const& r) {
+        return r.match(matchers::is_complement<T>);
     }
 
     /**
-     * @brief Tests whether the regex is any.
+     * @brief Tests whether \f$ r = \Sigma^{*} \f$
      */
     template<typename T>
-    inline bool is_any(Regex<T> const& regex) {
-        return regex.match(matchers::is_any<T>);
+    inline bool is_any(Regex<T> const& r) {
+        return r.match(matchers::is_any<T>);
     }
+    ///@}
+
+    /**
+     * @brief Tests whether \f$ \varepsilon \in \mathcal{L}(r) \f$
+     */
+    template<typename T, class Eq = std::equal_to<T>>
+    inline bool is_nullable(Regex<T> const& r) {
+        return r.match(matchers::nullability_checker<T, Eq>);
+    }
+
+    /**
+     * @brief Generates the minimal alphabet on which the regex is correctly defined.
+     * 
+     * The minimal alphabet is the set of all literals which explicitely
+     * appear in the regex.
+     *
+     * @tparam R The container to use; must support `insert(T)`.
+     */
+    template<typename T, class R = std::set<T>>
+    R generate_minimal_alphabet(Regex<T> const& regex) {
+        return regex.match(matchers::alphabet_finder<T, R>);
+    }
+
+    /**
+     * @name Regex derivation
+     * @brief Derives a regex w.r.t a literal or a string.
+     * 
+     * The derivative of some regex \f$ r \f$ with respect to
+     * some literal \f$ x \in \Sigma \f$, noted \f$ \delta(x,\ r) \f$, is another regex \f$ r' \f$ verifying
+     * \f[ \mathcal{L}(r') := \left\{ w \mid xw \in \mathcal{L}(r) \right\} \f]
+     * 
+     * Derivation can then be extended to strings \f$ s \in \Sigma^*\f$
+     * 1. \f$ \Delta(\varepsilon,\ r) := r \f$
+     * 3. \f$ \Delta(x :: w,\ r) := \Delta(w,\ \delta(x,\ r)) \f$
+     *
+     * A nice property of derivation is that
+     * \f[ w \in \mathcal{L}(r) \iff \varepsilon \in \mathcal{L}(\Delta(w,\ r)) \f]
+     *
+     * @tparam Eq Function-object defining literal equality.
+     *
+     * @see S. Owens, J. Reppy, A. Turon, <a href="https://www.ccs.neu.edu/home/turon/re-deriv.pdf"><i>Regular-expression derivatives reexamined</i></a>
+     * for more information on regex derivation.
+     * @{
+     */
+
+    template<typename T, class Eq = std::equal_to<T>>
+    inline Regex<T> derive(T const& x, Regex<T> const& regex) {
+        return regex.match(matchers::Deriver<T, Eq>{x});
+    }
+
+    template<typename T, range_of<T> R, class Eq = std::equal_to<T>>
+    Regex<T> derive(R&& string, Regex<T> const& r) {
+        auto res = r;
+        for(
+            auto beg = std::ranges::cbegin(string), end = std::ranges::cend(string); 
+            beg != end; 
+            ++beg
+        ) {
+            res = derive<T, Eq>(*beg, res);
+        }
+
+        return res;
+    }
+    ///@}
 
     /**
      * @brief Converts a regex into a `std::string`.
@@ -443,80 +511,12 @@ namespace tfl {
     }
 
     /**
-     * @brief Tests whether the regex is nullable.
-     *
-     * A regex is nullable iff it accepts ε (the empty string).
+     * @name Binary-tree-like operations
+     * @brief Operations which consider regexes as a binary trees.
+     * @{
      */
-    template<typename T, class Eq = std::equal_to<T>>
-    inline bool is_nullable(Regex<T> const& regex) {
-        return regex.match(matchers::nullability_checker<T, Eq>);
-    }
-
-    /**
-     * @brief Derives a regex w.r.t some literal.
-     * 
-     * The derivative of some regex \f$ R \f$ with respect to
-     * some literal \f$ x \in \Sigma \f$ is another regex verifying
-     * \f[ \mathcal{L}(\delta_x(R)) = \left\{ w \mid xw \in \mathcal{L}(R) \right\} \f]
-     *
-     * @tparam Eq Function-object defining literal equality.
-     * @param x The literal to use for derivation.
-     * @param regex The regex to derive.
-     *
-     * @see This <a href="https://www.ccs.neu.edu/home/turon/re-deriv.pdf">paper</a>
-     * (S. Owens, J. Reppy, A. Turon, *Regular-expression derivatives reexamined*)
-     * for more information on regex derivation.
-     */
-    template<typename T, class Eq = std::equal_to<T>>
-    inline Regex<T> derive(T const& x, Regex<T> const& regex) {
-        return regex.match(matchers::Deriver<T, Eq>{x});
-    }
-
-    /**
-     * @brief Derives a regex w.r.t some literals.
-     * 
-     * The regex will be derive w.r.t to the first lieral
-     * in the sequence, then the result will be derive w.r.t
-     * the second, etc...
-     *
-     * @tparam Eq Function-object defining literal equality.
-     * @param r The sequence of literals to use for derivation.
-     * @param regex The regex to derive.
-     */
-    template<typename T, range_of<T> R, class Eq = std::equal_to<T>>
-    Regex<T> derive(R&& r, Regex<T> const& regex) {
-        auto res = regex;
-        for(
-            auto beg = std::ranges::cbegin(r), end = std::ranges::cend(r); 
-            beg != end; 
-            ++beg
-        ) {
-            res = derive<T, Eq>(*beg, res);
-        }
-
-        return res;
-    }
-
-    /**
-     * @brief Generates the minimal alphabet on which the regex is defined.
-     * 
-     * The minimal alphabet is the set of all literals which explicitely
-     * appear in the regex.
-     *
-     * @tparam R The container to use; must support `insert(T)`.
-     * @param regex The regex whose alphabet must be generated.
-     */
-    template<typename T, class R = std::set<T>>
-    R generate_minimal_alphabet(Regex<T> const& regex) {
-        return regex.match(matchers::alphabet_finder<T, R>);
-    }
-
     /**
      * @brief Computes the depth of the regex.
-     * 
-     * The depth of a regex is the depth of the binary tree representing it.
-     *
-     * @param regex The regex whose depth must be computed.
      */
     template<typename T>
     std::size_t depth(Regex<T> const& regex) {
@@ -525,13 +525,10 @@ namespace tfl {
 
     /**
      * @brief Computes the size of the regex.
-     * 
-     * The depth of a regex is the size of the binary tree representing it.
-     *
-     * @param regex The regex whose size must be computed.
      */
     template<typename T>
     std::size_t size(Regex<T> const& regex) {
         return regex.match(matchers::measurer<T>);
     }
+    ///@}
 }
