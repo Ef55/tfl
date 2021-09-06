@@ -511,7 +511,7 @@ namespace tfl {
     }
 
     /**
-     * @name Binary-tree-like operations
+     * @name Regex binary-tree-like operations
      * @brief Operations which consider regexes as a binary trees.
      * @{
      */

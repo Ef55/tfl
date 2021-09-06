@@ -19,6 +19,12 @@
 namespace tfl {
 
     /**
+     * @name Automata additional operations
+     * @warning Might (and should) be move into another scope
+     * @{
+     */
+
+    /**
      * @brief Creates the cross product of two DFAs.
      * 
      * Given two (complete) DFAs \f$ L \f$ and \f$ R \f$, their cross product is defined as follows:
@@ -296,6 +302,7 @@ namespace tfl {
 
         return builder;
     }
+    ///@}
 
     namespace {
         template<typename T>
