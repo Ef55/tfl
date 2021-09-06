@@ -27,7 +27,7 @@ namespace tfl {
     class NFA;
 
     /**
-     * @brief <a href=https://en.wikipedia.org/wiki/Deterministic_finite_automaton>DFA</a>.
+     * @brief <a href=https://en.wikipedia.org/wiki/Deterministic_finite_automaton>Deterministic Finite Automaton</a>.
      * 
      * This implementation uses a definition slightly different than the classic one.
      * A DFA is defined as a 5-tuple consisting of:
@@ -644,13 +644,13 @@ namespace tfl {
 
 
     /**
-     * @brief <a href=https://en.wikipedia.org/wiki/Nondeterministic_finite_automaton>NFA-ε</a>.
+     * @brief <a href=https://en.wikipedia.org/wiki/Nondeterministic_finite_automaton>Nondeterministic Finite Automaton</a>.
      * 
      * This implementation uses a definition slightly different than the classic one.
-     * A NFA-ε is defined as a 5-tuple consisting of:
+     * A NFA is defined as a 5-tuple consisting of:
      * - The states \f$ Q = [0,1,\ldots,n] \f$;
      * - The alphabet \f$ \Sigma = T^{-} \cup \textsc{UNKNOWN} \f$;
-     * - The transition function \f$ \delta: Q \times (\Sigma \cup \varepsilon) \longmapsto \mathcal{P}(Q) \f$;
+     * - The transition function \f$ \delta: Q \times \Sigma \longmapsto \mathcal{P}(Q) \f$;
      * - The initial state \f$ q_0 = 0 \f$;
      * - The accepting states \f$ F \subset Q \f$.
      *
@@ -665,20 +665,14 @@ namespace tfl {
      * - The unknown transition and \f$ T^{-} \f$: allows to define the automaton on all values of type `T` without specifying every value;
      * - Default initial state: the initial state is always the state 0. Sorry but this was convenient.
      *
-     * The NFA-ε defines a language 
-     * \f$ \mathcal{L} = \left\{ w \in \Sigma^* \mid \Delta(\{0\} \times w) \in F \right\} \f$
+     * The NFA defines a language 
+     * \f$ \mathcal{L} = \left\{ w \in \Sigma^* \mid \Delta(\{0\} \times w) \cap F \not= \emptyset \right\} \f$
      * where \f$ \Delta: \mathcal{P}(Q) \times \Sigma^* \longmapsto \mathcal{P}(Q) \f$ is the extended transition function
      * defined by
      * - \f$ \Delta(S \times \varepsilon) = S \f$;
-     * - \f$ \Delta(S \times x \mathbin{::} w) = \Delta\left(\left(\bigcup\limits_{i \in S} \delta(s \times x) \right) \times w\right) \f$.
-     *
-     * Note that in order to be correct, the above definition requires some ε-closures which were 
-     * omited for brevity.
+     * - \f$ \Delta(S \times x \mathbin{::} w) = \Delta\left(\left(\bigcup\limits_{i \in S} \delta(i \times x) \right) \times w\right) \f$.
      *
      * @tparam T Type of the alphabet.
-     *
-     * @warning This class could be reduced from NFA-ε into NFA for both simplicity and efficiency. 
-     * The Builder would convert the NFA-ε into an NFA (i.e. the builder's interface would stay the same).
      */
     template<typename T>
     class NFA {
@@ -696,7 +690,6 @@ namespace tfl {
 
     private:
         std::unordered_map<T, std::vector<StateIndices>> _transitions;
-        std::vector<StateIndices> _epsilon_transitions;
         std::vector<StateIndices> _unknown_transitions;
         std::vector<bool> _accepting_states;
 
@@ -717,10 +710,9 @@ namespace tfl {
             }
         }
 
-        template<range Tr, range Et, range Ut, range As>
-        NFA(Tr&& transitions, Et&& epsilons, Ut&& unknown_transitions, As&& accepting_states): 
+        template<range Tr, range Ut, range As>
+        NFA(Tr&& transitions, Ut&& unknown_transitions, As&& accepting_states): 
         _transitions(std::ranges::cbegin(transitions), std::ranges::cend(transitions)), 
-        _epsilon_transitions(std::ranges::cbegin(epsilons), std::ranges::cend(epsilons)),
         _unknown_transitions(std::ranges::cbegin(unknown_transitions), std::ranges::cend(unknown_transitions)), 
         _accepting_states(std::ranges::cbegin(accepting_states), std::ranges::cend(accepting_states)) {
             auto s = _unknown_transitions.size();
@@ -731,26 +723,8 @@ namespace tfl {
             };
 
             check(_accepting_states, "accepting states");
-            check(_epsilon_transitions, "epsilon");
             for(auto p: _transitions) {
                 check(p.second, Stringify<T>::convert(p.first));
-            }
-        }
-
-        void epsilon_closure(StateIndices& current) const {
-            std::queue<StateIdx> queue;
-            for(auto c : current) {
-                queue.push(c);
-            }
-
-            while(!queue.empty()) {
-                for(StateIdx state: _epsilon_transitions[queue.front()]) {
-                    if(current.insert(state).second) {
-                        queue.push(state);
-                    }
-                }
-
-                queue.pop();
             }
         }
 
@@ -789,14 +763,6 @@ namespace tfl {
         }
 
         /**
-         * @brief Returns \f$ \delta(\textup{state} \times \varepsilon) \f$.
-         * @exception std::invalid_argument If \f$ x \not\in Q \f$
-         */
-        StateIndices epsilon_transition(StateIdx const& current) const {
-            return _epsilon_transitions[check_state(current)];
-        }
-
-        /**
          * @brief Returns \f$ \delta(\textup{state} \times \textsc{UNKNOWN}) \f$.
          * @exception std::invalid_argument If \f$ x \not\in Q \f$
          */
@@ -812,13 +778,6 @@ namespace tfl {
         }
 
         /**
-         * @brief Tests whether the NFA has ε-transitions.
-         */
-        bool has_epsilon_transitions() const {
-            return any_of(_epsilon_transitions, [](auto s){ return !s.empty(); });
-        }
-
-        /**
          * @brief Tests whether \f$ \textup{sequence} \in \mathcal{L} \f$
          * 
          * @tparam R Type of the input sequence.
@@ -828,8 +787,6 @@ namespace tfl {
         bool accepts(R&& sequence) const {
             StateIndices current;
             current.insert(0);
-
-            epsilon_closure(current);
 
             for(
                 auto beg = std::ranges::cbegin(sequence), end = std::ranges::cend(sequence); 
@@ -845,7 +802,6 @@ namespace tfl {
                 }
 
                 current = next;
-                epsilon_closure(current);
             }
 
             return any_of(current, [this](auto s){ return this->is_accepting(s); });
@@ -862,6 +818,11 @@ namespace tfl {
 
         /**
          * @brief Allows NFA creation.
+         *
+         * @note This builder represents a NFA-ε, i.e.
+         * \f$ \delta: Q \times (\Sigma \cup \varepsilon) \longmapsto \mathcal{P}(Q) \f$
+         * (note the ε), for ease of construction, which will then be converted
+         * into a classical NFA for efficiency.
          */
         class Builder final {
             using OptStateIdx = std::optional<StateIdx>;
@@ -1240,17 +1201,22 @@ namespace tfl {
              * @brief Builds the NFA.
              * @{
              */
-            NFA finalize() const {
+            NFA finalize() {
                 if(state_count() == 0) {
                     throw std::invalid_argument("A NFA must have at least one state.");
                 }
 
+                epsilon_elimination();
+
                 return NFA(
                     _transitions,
-                    _epsilon_transitions,
                     _unknown_transitions,
                     _accepting_states
                 );
+            }
+
+            NFA finalize() const {
+                return Builder(*this).finalize();
             }
 
             operator NFA() const {
