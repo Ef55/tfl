@@ -113,9 +113,9 @@ namespace tfl {
 
         template<range Tr, range Ut, range As>
         DFA(Tr&& transitions, Ut&& unknown_transitions, As&& accepting_states): 
-        _transitions(transitions.begin(), transitions.end()), 
-        _unknown_transitions(unknown_transitions.begin(), unknown_transitions.end()), 
-        _accepting_states(accepting_states.begin(), accepting_states.end()) {
+        _transitions(std::ranges::cbegin(transitions), std::ranges::cend(transitions)), 
+        _unknown_transitions(std::ranges::cbegin(unknown_transitions), std::ranges::cend(unknown_transitions)), 
+        _accepting_states(std::ranges::cbegin(accepting_states), std::ranges::cend(accepting_states)) {
             
             auto s = _unknown_transitions.size();
             auto check = [&s](auto& ls, std::string const& name){ 
@@ -196,11 +196,11 @@ namespace tfl {
          * @tparam R Type of the input sequence.
          * @param sequence The sequence to test for language-membership.
          */
-        template<range R>
+        template<range_of<T> R>
         bool accepts(R&& sequence) const noexcept {
             StateIdx state = 0;
             for(
-                auto beg = sequence.begin(), end = sequence.end(); 
+                auto beg = std::ranges::cbegin(sequence), end = std::ranges::cend(sequence); 
                 (beg != end) && (state != DEAD_STATE); 
                 ++beg
             ) {
@@ -230,7 +230,7 @@ namespace tfl {
          *
          * @note The returned length might be 0 if \f$ \varepsilon \in \mathcal{L} \f$.
          */
-        template<range R>
+        template<range_of<T> R>
         std::optional<std::size_t> munch(R&& sequence) const noexcept {
             StateIdx state = 0;
             std::size_t step = 0;
@@ -239,7 +239,7 @@ namespace tfl {
                 std::optional<std::size_t>{std::nullopt};
 
             for(
-                auto beg = sequence.begin(), end = sequence.end(); 
+                auto beg = std::ranges::cbegin(sequence), end = std::ranges::cend(sequence); 
                 (beg != end) && (state != DEAD_STATE); 
                 ++beg
             ) {
@@ -298,7 +298,7 @@ namespace tfl {
             /**
              * @brief Creates a builder with initial \f$ T^{-} = \textup{inputs}\f$ and `size` states.
              */
-            template<range R>
+            template<range_of<T> R>
             Builder(R&& inputs, StateIdx size = 0): _transitions(), _unknown_transitions(size, std::nullopt), _accepting_states(size, 0) {
                 for(auto input: inputs) {
                     add_input(input);
@@ -430,7 +430,7 @@ namespace tfl {
              * @brief Sets whether \f$ \textup{states} \subset F \f$.
              * @exception std::invalid_argument If \f$ \textup{states} \not\subset Q \f$.
              */
-            template<range R>
+            template<range_of<StateIdx> R>
             Builder& set_acceptance(R&& states, bool value) {
                 for(auto state: states) {
                     check_ns_state(state);
@@ -443,7 +443,7 @@ namespace tfl {
              * @brief Sets whether \f$ \textup{states} \subset F \f$.
              * @exception std::invalid_argument If \f$ \textup{states} \not\subset Q \f$.
              */
-            Builder& set_acceptance(std::initializer_list<T> states, bool value) {
+            Builder& set_acceptance(std::initializer_list<StateIdx> states, bool value) {
                 return set_acceptance(views::all(states), value);
             }
             ///@}
@@ -719,10 +719,10 @@ namespace tfl {
 
         template<range Tr, range Et, range Ut, range As>
         NFA(Tr&& transitions, Et&& epsilons, Ut&& unknown_transitions, As&& accepting_states): 
-        _transitions(transitions.begin(), transitions.end()), 
-        _epsilon_transitions(epsilons.begin(), epsilons.end()),
-        _unknown_transitions(unknown_transitions.begin(), unknown_transitions.end()), 
-        _accepting_states(accepting_states.begin(), accepting_states.end()) {
+        _transitions(std::ranges::cbegin(transitions), std::ranges::cend(transitions)), 
+        _epsilon_transitions(std::ranges::cbegin(epsilons), std::ranges::cend(epsilons)),
+        _unknown_transitions(std::ranges::cbegin(unknown_transitions), std::ranges::cend(unknown_transitions)), 
+        _accepting_states(std::ranges::cbegin(accepting_states), std::ranges::cend(accepting_states)) {
             auto s = _unknown_transitions.size();
             auto check = [&s](auto& ls, std::string const& name){ 
                 if(ls.size() != s) {
@@ -824,7 +824,7 @@ namespace tfl {
          * @tparam R Type of the input sequence.
          * @param sequence The sequence to test for language-membership.
          */
-        template<range R>
+        template<range_of<T> R>
         bool accepts(R&& sequence) const {
             StateIndices current;
             current.insert(0);
@@ -832,7 +832,7 @@ namespace tfl {
             epsilon_closure(current);
 
             for(
-                auto beg = sequence.begin(), end = sequence.end(); 
+                auto beg = std::ranges::cbegin(sequence), end = std::ranges::cend(sequence); 
                 beg != end; 
                 ++beg
             ) {
@@ -878,7 +878,7 @@ namespace tfl {
                 return state;
             }
 
-            template<range R>
+            template<range_of<StateIdx> R>
             R const& check_states(R const& states) const {
                 for(auto s: states) {
                     check_state(s);
@@ -907,7 +907,7 @@ namespace tfl {
             /**
              * @brief Creates a builder with initial \f$ T^{-} = \textup{inputs}\f$ and `size` states.
              */
-            template<range R>
+            template<range_of<T> R>
             Builder(R&& inputs, StateIdx size = 0): 
             _transitions(), 
             _epsilon_transitions(size, StateIndices{}), 
@@ -1058,7 +1058,7 @@ namespace tfl {
              * @brief Sets whether \f$ \textup{states} \subset F \f$.
              * @exception std::invalid_argument If \f$ \textup{states} \not\subset Q \f$
              */
-            template<range R>
+            template<range_of<StateIdx> R>
             Builder& set_acceptance(R&& states, bool value) {
                 for(auto state: states) {
                     check_state(state);
@@ -1071,7 +1071,7 @@ namespace tfl {
              * @brief Sets whether \f$ \textup{states} \subset F \f$.
              * @exception std::invalid_argument If \f$ \textup{states} \not\subset Q \f$
              */
-            Builder& set_acceptance(std::initializer_list<T> states, bool value) {
+            Builder& set_acceptance(std::initializer_list<StateIdx> states, bool value) {
                 return set_acceptance(views::all(states), value);
             }
             ///@}
@@ -1085,12 +1085,12 @@ namespace tfl {
              * or \f$ \textup{to} \not\subset Q \f$
              * @{
              */
-            template<range R>
+            template<range_of<StateIdx> R>
             Builder& add_transitions(StateIdx const& state, T const& input, R&& to) {
                 check_state(state);
                 check_input(input);
                 check_states(to);
-                _transitions[input][state].insert(to.begin(), to.end());
+                _transitions[input][state].insert(std::ranges::cbegin(to), std::ranges::cend(to));
                 return *this;
             }
 
@@ -1115,11 +1115,11 @@ namespace tfl {
              * or \f$ \textup{to} \not\subset Q \f$
              * @{
              */
-            template<range R>
+            template<range_of<StateIdx> R>
             Builder& add_epsilon_transitions(StateIdx const& state, R&& to) {
                 check_state(state);
                 check_states(to);
-                _epsilon_transitions[state].insert(to.begin(), to.end());
+                _epsilon_transitions[state].insert(std::ranges::cbegin(to), std::ranges::cend(to));
                 return *this;
             }
 
@@ -1143,11 +1143,11 @@ namespace tfl {
              * or \f$ \textup{to} \not\subset Q \f$
              * @{
              */
-            template<range R>
+            template<range_of<StateIdx> R>
             Builder& add_unknown_transitions(StateIdx const& state, R&& to) {
                 check_state(state);
                 check_states(to);
-                _unknown_transitions[state].insert(to.begin(), to.end());
+                _unknown_transitions[state].insert(std::ranges::cbegin(to), std::ranges::cend(to));
                 return *this;
             }
 

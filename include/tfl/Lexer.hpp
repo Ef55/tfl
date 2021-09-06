@@ -169,7 +169,8 @@ namespace tfl {
 
         public:
             template<std::ranges::range Range>
-            SimpleDerivationLexer(Range&& rules, Regex<T> newline = Regex<T>::empty()): _rules(rules.begin(), rules.end()), _nl(newline) {}
+            SimpleDerivationLexer(Range&& rules, Regex<T> newline = Regex<T>::empty()): 
+            _rules(std::ranges::cbegin(rules), std::ranges::cend(rules)), _nl(newline) {}
         };
 
         template<typename T, typename R, container<T> Word = std::vector<T>>
@@ -306,7 +307,7 @@ namespace tfl {
 
         template<std::ranges::range Range>
         std::vector<R> operator()(Range&& range) const {
-            std::vector input(range.begin(), range.end());
+            std::vector input(std::ranges::cbegin(range), std::ranges::cend(range));
             return _lexer->apply(input);
         }
 

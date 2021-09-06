@@ -483,11 +483,11 @@ namespace tfl {
      * @param r The sequence of literals to use for derivation.
      * @param regex The regex to derive.
      */
-    template<typename T, std::ranges::range R, class Eq = std::equal_to<T>>
+    template<typename T, range_of<T> R, class Eq = std::equal_to<T>>
     Regex<T> derive(R&& r, Regex<T> const& regex) {
         auto res = regex;
         for(
-            auto beg = r.begin(), end = r.end(); 
+            auto beg = std::ranges::cbegin(r), end = std::ranges::cend(r); 
             beg != end; 
             ++beg
         ) {

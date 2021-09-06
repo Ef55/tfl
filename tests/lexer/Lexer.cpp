@@ -1,6 +1,5 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_template_test_macros.hpp>
-#include <catch2/matchers/catch_matchers_string.hpp>
 
 #include "tfl/Lexer.hpp"
 
@@ -102,14 +101,14 @@ TEMPLATE_TEST_CASE("Simple usecase", "[template]", LEXERS) {
             Regexes::word({'t', 'h', 'e', 'n'}),
             Regexes::word({'e', 'l', 's', 'e'}),
             Regexes::word({'r', 'e', 't', 'u', 'r', 'n'})
-            }), [](auto w){ return R(SpecialSymbol::KEYWORD); }},
-        {*alpha, [](auto w){ return R(std::string(w.begin(), w.end())); }},
-        {*digit, [](auto w){ return R(std::stoi(std::string(w.begin(), w.end()))); }},
-        {Regexes::literal('('), [](auto w){ return R(SpecialSymbol::OP_PAR); }},
-        {Regexes::literal(')'), [](auto w){ return R(SpecialSymbol::CL_PAR); }},
-        {*space, [](auto w){ return R(SpecialSymbol::SEP); }},
-        {Regexes::literal('+') | Regexes::literal('-') | Regexes::literal('/') | Regexes::literal('*'), [](auto w){ return R(SpecialSymbol::OP); }},
-        {Regexes::literal('/') - Regexes::literal('/') - *(digit | alpha | Regexes::literal(' ')) - eol, [](auto w){ return R(SpecialSymbol::COMMENT); }},
+            }), [](auto w){ return SpecialSymbol::KEYWORD; }},
+        {*alpha, [](auto w){ return std::string(w.begin(), w.end()); }},
+        {*digit, [](auto w){ return std::stoi(std::string(w.begin(), w.end())); }},
+        {Regexes::literal('('), [](auto w){ return SpecialSymbol::OP_PAR; }},
+        {Regexes::literal(')'), [](auto w){ return SpecialSymbol::CL_PAR; }},
+        {*space, [](auto w){ return SpecialSymbol::SEP; }},
+        {Regexes::literal('+') | Regexes::literal('-') | Regexes::literal('/') | Regexes::literal('*'), [](auto w){ return SpecialSymbol::OP; }},
+        {Regexes::literal('/') - Regexes::literal('/') - *(digit | alpha | Regexes::literal(' ')) - eol, [](auto w){ return SpecialSymbol::COMMENT; }},
     });
 
     auto integer_lexer = TestType::template make<char, int, std::string>({
@@ -196,5 +195,5 @@ TEMPLATE_TEST_CASE("Throws when no rule is applicable", "[template]", LEXERS) {
         {*Regexes::range('0', '9'), [](auto w){ return std::stoi(w); }}
     });
 
-    REQUIRE_THROWS_WITH( lexer(std::string("NotDigits")), Catch::Matchers::Contains("applicable") );
+    REQUIRE_THROWS_AS( lexer("NotDigits"), tfl::LexingException );
 }

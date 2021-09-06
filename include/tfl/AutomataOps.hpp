@@ -47,8 +47,8 @@ namespace tfl {
         std::unordered_set<T> inputs;
         auto linputs = left.alphabet();
         auto rinputs = right.alphabet();
-        inputs.insert(linputs.begin(), linputs.end());
-        inputs.insert(rinputs.begin(), rinputs.end());
+        inputs.insert(std::ranges::cbegin(linputs), std::ranges::cend(linputs));
+        inputs.insert(std::ranges::cbegin(rinputs), std::ranges::cend(rinputs));
 
         typename DFA<T>::Builder builder(inputs, size);
 
