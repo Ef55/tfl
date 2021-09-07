@@ -51,7 +51,7 @@ namespace Catch {
 
 TEST_CASE("Input buffer satisfies input_range and output_range", "[input-buffer]") {
     using T = char;
-    using B = InputBuffer<empty_view<char>>;
+    using B = InputBuffer<T>;
     using It = B::Iterator;
 
     STATIC_REQUIRE( std::is_same_v<B::ValueType, T> );

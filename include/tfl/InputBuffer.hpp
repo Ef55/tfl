@@ -5,6 +5,9 @@
 #include <concepts>
 #include <compare>
 #include <iterator>
+#include <memory>
+
+#include "Concepts.hpp"
 
 /**
  * @brief Contains the definition of \ref tfl::InputBuffer.
@@ -18,13 +21,13 @@ namespace tfl {
      *
      * Satisfies `input_range` and `output_range`.
      * 
-     * @tparam R Type of the underlying range.
+     * @tparam T Type of the elements.
      */
-    template<std::ranges::input_range R>
+    template<typename T>
     class InputBuffer final {
     public:
         /** @brief Type of the contained values. */
-        using ValueType = std::ranges::range_value_t<R>;
+        using ValueType = T;
         /** @brief Type for indices. */
         using SizeType = std::size_t;
 
@@ -33,15 +36,37 @@ namespace tfl {
 
     private:
 
+        struct AbstractRangeConsumer {
+            virtual ~AbstractRangeConsumer() = default;
+            virtual bool consumed_all() const = 0;
+            virtual T next() = 0;
+        };
+
+        template<std::ranges::input_range R> requires range_of<R, T>
+        class RangeConsumer: public AbstractRangeConsumer {
+            std::ranges::iterator_t<R> _next;
+            std::ranges::sentinel_t<R> _end;
+
+        public:
+            RangeConsumer(R&& range): _next(std::ranges::begin(range)), _end(std::ranges::end(range)) {}
+
+            bool consumed_all() const override {
+                return _next == _end;
+            }
+
+            T next() override {
+                ValueType val = *_next;
+                ++_next;
+                return val;
+            }
+        };
+
         std::deque<ValueType> _buf;
-        std::ranges::iterator_t<R> _next;
-        std::ranges::sentinel_t<R> _end;
+        std::unique_ptr<AbstractRangeConsumer> _range;
 
         bool shift() {
-            if(!consumed_all()) {
-                ValueType val = *_next;
-                _buf.push_back(val);
-                ++_next;
+            if(!_range->consumed_all()) {
+                _buf.push_back(_range->next());
                 return true;
             }
             else {
@@ -63,16 +88,22 @@ namespace tfl {
         /**
          * @brief Creates an input buffer on top of a range.
          *
+         * @tparam R Range type. Must iterate over `T`s.  
+         *
          * @warning The range is expected to be alive for at least
          * as long as this buffer.
          */
-        InputBuffer(R&& range): _buf(), _next(std::ranges::begin(range)), _end(std::ranges::end(range)) {}
+        template<std::ranges::input_range R> requires range_of<R, T>
+        InputBuffer(R&& range): 
+        _buf(), 
+        _range( std::make_unique<RangeConsumer<R>>( std::forward<R>(range) ) ) 
+        {}
 
         /**
          * @brief Checks whether the range was fully consumed. Might never be true.
          */
         bool consumed_all() const {
-            return _next == _end;
+            return _range->consumed_all();
         }
 
         /**
@@ -244,5 +275,5 @@ namespace tfl {
 
     /** @brief CTAD for \ref InputBuffer. */
     template<class R>
-    InputBuffer(R&&) -> InputBuffer<std::remove_cv_t<R>>;
+    InputBuffer(R&&) -> InputBuffer<std::ranges::range_value_t<R>>;
 }
