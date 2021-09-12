@@ -37,7 +37,7 @@ namespace tfl {
      * - *Conjunction(Regex, Regex)*: \f$ \mathbin{\&} \f$ \ref operator&().
      *
      * This class is implemented in a <a href="https://en.wikipedia.org/wiki/Algebraic_data_type">ADT</a>-like fashion. 
-     * Pattern matching can be performed using \ref matchers::Base in conjunction with \ref Regex::match().
+     * Pattern matching can be performed using \ref matchers::regex::Base in conjunction with \ref Regex::match().
      *
      * Note that this implementation only sees regexes as a "binary-tree-like structure",
      * which define a language, and as such does not provide methods to test a string for language-membership.
@@ -59,57 +59,57 @@ namespace tfl {
     template<typename T>
     class Regex final {
         struct Empty {
-            template<typename R> inline R match(matchers::Base<T, R> const& matcher) const { return matcher.empty(); }
-            template<typename R> inline R match(matchers::MutableBase<T, R>& matcher) const { return matcher.empty(); }
+            template<typename R> inline R match(matchers::regex::Base<T, R> const& matcher) const { return matcher.empty(); }
+            template<typename R> inline R match(matchers::regex::MutableBase<T, R>& matcher) const { return matcher.empty(); }
         };
 
         struct Epsilon {
-            template<typename R> inline R match(matchers::Base<T, R> const& matcher) const { return matcher.epsilon(); }
-            template<typename R> inline R match(matchers::MutableBase<T, R>& matcher) const { return matcher.epsilon(); }
+            template<typename R> inline R match(matchers::regex::Base<T, R> const& matcher) const { return matcher.epsilon(); }
+            template<typename R> inline R match(matchers::regex::MutableBase<T, R>& matcher) const { return matcher.epsilon(); }
         };
 
         struct Alphabet {
-            template<typename R> inline R match(matchers::Base<T, R> const& matcher) const { return matcher.alphabet(); }
-            template<typename R> inline R match(matchers::MutableBase<T, R>& matcher) const { return matcher.alphabet(); }
+            template<typename R> inline R match(matchers::regex::Base<T, R> const& matcher) const { return matcher.alphabet(); }
+            template<typename R> inline R match(matchers::regex::MutableBase<T, R>& matcher) const { return matcher.alphabet(); }
         };
 
         struct Literal {
             T const _lit;
-            template<typename R> inline R match(matchers::Base<T, R> const& matcher) const { return matcher.literal(_lit); }
-            template<typename R> inline R match(matchers::MutableBase<T, R>& matcher) const { return matcher.literal(_lit); }
+            template<typename R> inline R match(matchers::regex::Base<T, R> const& matcher) const { return matcher.literal(_lit); }
+            template<typename R> inline R match(matchers::regex::MutableBase<T, R>& matcher) const { return matcher.literal(_lit); }
         };
 
         struct Disjunction {
             Regex const _left;
             Regex const _right;
-            template<typename R> inline R match(matchers::Base<T, R> const& matcher) const { return matcher.disjunction(_left, _right); }
-            template<typename R> inline R match(matchers::MutableBase<T, R>& matcher) const { return matcher.disjunction(_left, _right); }
+            template<typename R> inline R match(matchers::regex::Base<T, R> const& matcher) const { return matcher.disjunction(_left, _right); }
+            template<typename R> inline R match(matchers::regex::MutableBase<T, R>& matcher) const { return matcher.disjunction(_left, _right); }
         };
 
         struct Sequence {
             Regex const _left;
             Regex const _right;
-            template<typename R> inline R match(matchers::Base<T, R> const& matcher) const { return matcher.sequence(_left, _right); }
-            template<typename R> inline R match(matchers::MutableBase<T, R>& matcher) const { return matcher.sequence(_left, _right); }
+            template<typename R> inline R match(matchers::regex::Base<T, R> const& matcher) const { return matcher.sequence(_left, _right); }
+            template<typename R> inline R match(matchers::regex::MutableBase<T, R>& matcher) const { return matcher.sequence(_left, _right); }
         };
 
         struct KleeneStar {
             Regex const _underlying;
-            template<typename R> inline R match(matchers::Base<T, R> const& matcher) const { return matcher.kleene_star(_underlying); }
-            template<typename R> inline R match(matchers::MutableBase<T, R>& matcher) const { return matcher.kleene_star(_underlying); }
+            template<typename R> inline R match(matchers::regex::Base<T, R> const& matcher) const { return matcher.kleene_star(_underlying); }
+            template<typename R> inline R match(matchers::regex::MutableBase<T, R>& matcher) const { return matcher.kleene_star(_underlying); }
         };
 
         struct Complement {
             Regex const _underlying;
-            template<typename R> inline R match(matchers::Base<T, R> const& matcher) const { return matcher.complement(_underlying); }
-            template<typename R> inline R match(matchers::MutableBase<T, R>& matcher) const { return matcher.complement(_underlying); }
+            template<typename R> inline R match(matchers::regex::Base<T, R> const& matcher) const { return matcher.complement(_underlying); }
+            template<typename R> inline R match(matchers::regex::MutableBase<T, R>& matcher) const { return matcher.complement(_underlying); }
         };
 
         struct Conjunction {
             Regex const _left;
             Regex const _right;
-            template<typename R> inline R match(matchers::Base<T, R> const& matcher) const { return matcher.conjunction(_left, _right); }
-            template<typename R> inline R match(matchers::MutableBase<T, R>& matcher) const { return matcher.conjunction(_left, _right); }
+            template<typename R> inline R match(matchers::regex::Base<T, R> const& matcher) const { return matcher.conjunction(_left, _right); }
+            template<typename R> inline R match(matchers::regex::MutableBase<T, R>& matcher) const { return matcher.conjunction(_left, _right); }
         };
 
         using Variant = std::variant<Empty, Epsilon, Alphabet, Literal, Disjunction, Sequence, KleeneStar, Complement, Conjunction>;
@@ -278,7 +278,7 @@ namespace tfl {
          * @brief Apply a matcher to `this` regex.
          *
          * A matcher must inherit from either 
-         * \ref matchers::Base or \ref matchers::MutableBase (see the latter for the difference between them).
+         * \ref matchers::regex::Base or \ref matchers::regex::MutableBase (see the latter for the difference between them).
          *
          * A matcher implements a function for each regex constructor. When \ref match() is called, 
          * the function of `matcher` corresponding to the constructor used to build `this` will be called
@@ -288,17 +288,17 @@ namespace tfl {
          */
 
         template<typename R>
-        R match(matchers::Base<T, R> const& matcher) const {
+        R match(matchers::regex::Base<T, R> const& matcher) const {
             return std::visit([&matcher](auto r){ return r.match(matcher); }, *_regex);
         }
 
         template<typename R>
-        R match(matchers::MutableBase<T, R>& matcher) const {
+        R match(matchers::regex::MutableBase<T, R>& matcher) const {
             return std::visit([&matcher](auto r){ return r.match(matcher); }, *_regex);
         }
 
         template<typename R>
-        R match(matchers::MutableBase<T, R>&& matcher) const {
+        R match(matchers::regex::MutableBase<T, R>&& matcher) const {
             return std::visit([&matcher](auto r){ return r.match(matcher); }, *_regex);
         }
         ///@}

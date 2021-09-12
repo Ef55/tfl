@@ -281,9 +281,9 @@ namespace tfl {
 
     namespace {
         template<typename T>
-        class RegexToNFA: public matchers::Base<T, typename NFA<T>::Builder> {
+        class RegexToNFA: public matchers::regex::Base<T, typename NFA<T>::Builder> {
             using Builder = NFA<T>::Builder;
-            using matchers::Base<T, Builder>::rec;
+            using matchers::regex::Base<T, Builder>::rec;
         public:
             Builder empty() const {
                 return Automata<T>::empty();

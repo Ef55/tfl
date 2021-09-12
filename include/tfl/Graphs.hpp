@@ -20,9 +20,9 @@ namespace {
     };
 
     template<typename T>
-    class RegexDotGrapher final: public tfl::matchers::MutableBase<T, std::size_t> {
+    class RegexDotGrapher final: public tfl::matchers::regex::MutableBase<T, std::size_t> {
     private:
-        using tfl::matchers::MutableBase<T, std::size_t>::rec;
+        using tfl::matchers::regex::MutableBase<T, std::size_t>::rec;
 
         std::ostream& _stream;
         std::size_t _id;
