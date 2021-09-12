@@ -67,16 +67,16 @@ void test_lexer(tfl::Lexer<char, R> lexer, char const* name, char const* cinput,
 }
 
 struct DerivationLexer {
-    template<typename T, typename R, class Word = std::vector<T>>
-    static tfl::Lexer<T, tfl::Positioned<R>, Word> make(std::initializer_list<tfl::Rule<tfl::Regex<T>, R, Word>> rules, tfl::Regex<T> newline = tfl::Regex<T>::empty()) {
-        return tfl::Lexer<T, R, Word>::make_derivation_lexer(rules, newline);
+    template<typename T, typename R>
+    static tfl::Lexer<T, tfl::Positioned<R>> make(std::initializer_list<tfl::Rule<T, tfl::Regex<T>, R>> rules, tfl::Regex<T> newline = tfl::Regex<T>::empty()) {
+        return tfl::Lexer<T, R>::make_derivation_lexer(rules, newline);
     }
 };
 
 struct DFALexer {
-    template<typename T, typename R, class Word = std::vector<T>>
-    static tfl::Lexer<T, tfl::Positioned<R>, Word> make(std::initializer_list<tfl::Rule<tfl::Regex<T>, R, Word>> rules, tfl::Regex<T> newline = tfl::Regex<T>::empty()) {
-        return tfl::Lexer<T, R, Word>::make_dfa_lexer(rules, newline);
+    template<typename T, typename R>
+    static tfl::Lexer<T, tfl::Positioned<R>> make(std::initializer_list<tfl::Rule<T, tfl::Regex<T>, R>> rules, tfl::Regex<T> newline = tfl::Regex<T>::empty()) {
+        return tfl::Lexer<T, R>::make_dfa_lexer(rules, newline);
     }
 };
 
@@ -110,10 +110,6 @@ TEMPLATE_TEST_CASE("Simple usecase", "[template]", LEXERS) {
         {Regexes::literal('+') | Regexes::literal('-') | Regexes::literal('/') | Regexes::literal('*'), [](auto w){ return SpecialSymbol::OP; }},
         {Regexes::literal('/') - Regexes::literal('/') - *(digit | alpha | Regexes::literal(' ')) - eol, [](auto w){ return SpecialSymbol::COMMENT; }},
     });
-
-    auto integer_lexer = TestType::template make<char, int, std::string>({
-        {*digit, [](auto str){ return std::stoi(str); }}
-    }).map([](auto e){ return e.value(); });
 
     test_lexer_line_positioned(
         lexer,
@@ -191,8 +187,8 @@ TEMPLATE_TEST_CASE("Simple usecase", "[template]", LEXERS) {
 
 TEMPLATE_TEST_CASE("Throws when no rule is applicable", "[template]", LEXERS) {
     using Regexes = tfl::Regexes<char>;
-    auto lexer = TestType::template make<char, int, std::string>({
-        {*Regexes::range('0', '9'), [](auto w){ return std::stoi(w); }}
+    auto lexer = TestType::template make<char, int>({
+        {*Regexes::range('0', '9'), [](auto w){ return std::stoi(std::string(std::ranges::begin(w), std::ranges::end(w))); }}
     });
 
     REQUIRE_THROWS_AS( lexer("NotDigits"), tfl::LexingException );
