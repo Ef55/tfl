@@ -42,7 +42,7 @@ namespace tfl {
             virtual T next() = 0;
         };
 
-        template<std::ranges::input_range R> requires range_of<R, T>
+        template<input_range_of<T> R>
         class RangeConsumer: public AbstractRangeConsumer {
             std::ranges::iterator_t<R> _next;
             std::ranges::sentinel_t<R> _end;
@@ -86,14 +86,14 @@ namespace tfl {
     public:
 
         /**
-         * @brief Creates an input buffer on top of a range.
+         * @brief Creates an input buffer on top of an input range.
          *
          * @tparam R Range type. Must iterate over `T`s.  
          *
          * @warning The range is expected to be alive for at least
          * as long as this buffer.
          */
-        template<std::ranges::input_range R> requires range_of<R, T>
+        template<input_range_of<T> R>
         InputBuffer(R&& range): 
         _buf(), 
         _range( std::make_unique<RangeConsumer<R>>( std::forward<R>(range) ) ) 

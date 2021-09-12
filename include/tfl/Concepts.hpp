@@ -42,6 +42,17 @@ namespace tfl {
 
 
     /**
+     * @brief Specifies that a type is an input range whose iteration yields a specific type.
+     * 
+     * @tparam R The range type.
+     * @tparam V The iterated type.
+     */
+    template<typename R, typename V>
+    concept input_range_of = std::ranges::input_range<R> && range_of<R, V>;
+
+
+
+    /**
      * @brief Specifies that a type is a container.
      * 
      * A container is a type which verifies:

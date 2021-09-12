@@ -19,10 +19,6 @@
 
 namespace tfl {
 
-    namespace {
-        using namespace std::ranges;
-    }
-
     template<typename T>
     class NFA;
 
@@ -111,7 +107,7 @@ namespace tfl {
             }
         }
 
-        template<range Tr, range Ut, range As>
+        template<std::ranges::input_range Tr, std::ranges::input_range Ut, std::ranges::input_range As>
         DFA(Tr&& transitions, Ut&& unknown_transitions, As&& accepting_states): 
         _transitions(std::ranges::cbegin(transitions), std::ranges::cend(transitions)), 
         _unknown_transitions(std::ranges::cbegin(unknown_transitions), std::ranges::cend(unknown_transitions)), 
@@ -196,7 +192,7 @@ namespace tfl {
          * @tparam R Type of the input sequence.
          * @param sequence The sequence to test for language-membership.
          */
-        template<range_of<T> R>
+        template<input_range_of<T> R>
         bool accepts(R&& sequence) const noexcept {
             StateIdx state = 0;
             for(
@@ -215,7 +211,7 @@ namespace tfl {
          * @see \ref accepts<R>()
          */
         bool accepts(std::initializer_list<T> sequence) const noexcept {
-            return accepts(views::all(sequence));
+            return accepts(std::ranges::views::all(sequence));
         }
 
         /**
@@ -230,7 +226,7 @@ namespace tfl {
          *
          * @note The returned length might be 0 if \f$ \varepsilon \in \mathcal{L} \f$.
          */
-        template<range_of<T> R>
+        template<input_range_of<T> R>
         std::optional<std::size_t> munch(R&& sequence) const noexcept {
             StateIdx state = 0;
             std::size_t step = 0;
@@ -259,7 +255,7 @@ namespace tfl {
          * @see \ref munch<R>()
          */
         std::optional<std::size_t> munch(std::initializer_list<T> sequence) const noexcept {
-            return munch(views::all(sequence));
+            return munch(std::ranges::views::all(sequence));
         }
         ///@}
 
@@ -298,7 +294,7 @@ namespace tfl {
             /**
              * @brief Creates a builder with initial \f$ T^{-} = \textup{inputs}\f$ and `size` states.
              */
-            template<range_of<T> R>
+            template<input_range_of<T> R>
             Builder(R&& inputs, StateIdx size = 0): _transitions(), _unknown_transitions(size, std::nullopt), _accepting_states(size, 0) {
                 for(auto input: inputs) {
                     add_input(input);
@@ -308,12 +304,12 @@ namespace tfl {
             /**
              * @brief Creates a builder with initial \f$ T^{-} = \textup{inputs}\f$ and `size` states.
              */
-            Builder(std::initializer_list<T> inputs = {}, StateIdx size = 0): Builder(views::all(inputs), size) {}
+            Builder(std::initializer_list<T> inputs = {}, StateIdx size = 0): Builder(std::ranges::views::all(inputs), size) {}
             
             /**
              * @brief Creates a builder with `size` states.
              */
-            Builder(StateIdx size): Builder(views::empty<T>, size) {}
+            Builder(StateIdx size): Builder(std::ranges::views::empty<T>, size) {}
 
             /**
              * @brief Returns the number of states. The dead state is not counted.
@@ -371,7 +367,7 @@ namespace tfl {
              * @brief Returns \f$ T^{-} \f$.
              */
             auto alphabet() const {
-                return transform_view(_transitions, [](auto p){ return p.first; });
+                return std::ranges::transform_view(_transitions, [](auto p){ return p.first; });
             }
 
             /**
@@ -430,7 +426,7 @@ namespace tfl {
              * @brief Sets whether \f$ \textup{states} \subset F \f$.
              * @exception std::invalid_argument If \f$ \textup{states} \not\subset Q \f$.
              */
-            template<range_of<StateIdx> R>
+            template<input_range_of<StateIdx> R>
             Builder& set_acceptance(R&& states, bool value) {
                 for(auto state: states) {
                     check_ns_state(state);
@@ -444,7 +440,7 @@ namespace tfl {
              * @exception std::invalid_argument If \f$ \textup{states} \not\subset Q \f$.
              */
             Builder& set_acceptance(std::initializer_list<StateIdx> states, bool value) {
-                return set_acceptance(views::all(states), value);
+                return set_acceptance(std::ranges::views::all(states), value);
             }
             ///@}
 
@@ -515,9 +511,9 @@ namespace tfl {
                 };
 
                 for(auto& p: _transitions) {
-                    for_each(p.second, cr);
+                    std::ranges::for_each(p.second, cr);
                 }
-                for_each(_unknown_transitions, cr);
+                std::ranges::for_each(_unknown_transitions, cr);
 
                 return *this;
             }
@@ -536,9 +532,9 @@ namespace tfl {
                 };
 
                 for(auto& p: _transitions) {
-                    for_each(p.second, cr);
+                    std::ranges::for_each(p.second, cr);
                 }
-                for_each(_unknown_transitions, cr);
+                std::ranges::for_each(_unknown_transitions, cr);
 
                 return *this;
             }
@@ -576,21 +572,20 @@ namespace tfl {
                 }
 
                 return DFA(
-                    transform_view(
-                        views::all(_transitions),
+                    std::ranges::transform_view(
+                        std::ranges::views::all(_transitions),
                         [](auto p){ 
                             std::vector<StateIdx> transitions;
-                            std::transform(
-                                p.second.cbegin(), 
-                                p.second.cend(), 
+                            std::ranges::transform(
+                                p.second, 
                                 std::back_inserter(transitions), 
                                 [](auto o){ return o.value(); }
                             );
                             return std::make_pair(p.first, transitions); 
                         }
                     ),
-                    transform_view(
-                        views::all(_unknown_transitions), 
+                    std::ranges::transform_view(
+                        std::ranges::views::all(_unknown_transitions), 
                         [](auto o){ return o.value(); }
                     ),
                     _accepting_states
@@ -710,7 +705,7 @@ namespace tfl {
             }
         }
 
-        template<range Tr, range Ut, range As>
+        template<std::ranges::input_range Tr, std::ranges::input_range Ut, std::ranges::input_range As>
         NFA(Tr&& transitions, Ut&& unknown_transitions, As&& accepting_states): 
         _transitions(std::ranges::cbegin(transitions), std::ranges::cend(transitions)), 
         _unknown_transitions(std::ranges::cbegin(unknown_transitions), std::ranges::cend(unknown_transitions)), 
@@ -783,7 +778,7 @@ namespace tfl {
          * @tparam R Type of the input sequence.
          * @param sequence The sequence to test for language-membership.
          */
-        template<range_of<T> R>
+        template<input_range_of<T> R>
         bool accepts(R&& sequence) const {
             StateIndices current;
             current.insert(0);
@@ -804,7 +799,7 @@ namespace tfl {
                 current = next;
             }
 
-            return any_of(current, [this](auto s){ return this->is_accepting(s); });
+            return std::ranges::any_of(current, [this](auto s){ return this->is_accepting(s); });
         }
 
         /**
@@ -812,7 +807,7 @@ namespace tfl {
          * @see \ref accepts<R>()
          */
         bool accepts(std::initializer_list<T> sequence) const {
-            return accepts(views::all(sequence));
+            return accepts(std::ranges::views::all(sequence));
         }
 
 
@@ -839,7 +834,7 @@ namespace tfl {
                 return state;
             }
 
-            template<range_of<StateIdx> R>
+            template<input_range_of<StateIdx> R>
             R const& check_states(R const& states) const {
                 for(auto s: states) {
                     check_state(s);
@@ -868,7 +863,7 @@ namespace tfl {
             /**
              * @brief Creates a builder with initial \f$ T^{-} = \textup{inputs}\f$ and `size` states.
              */
-            template<range_of<T> R>
+            template<input_range_of<T> R>
             Builder(R&& inputs, StateIdx size = 0): 
             _transitions(), 
             _epsilon_transitions(size, StateIndices{}), 
@@ -883,12 +878,12 @@ namespace tfl {
             /**
              * @brief Creates a builder with initial \f$ T^{-} = \textup{inputs}\f$ and `size` states.
              */
-            Builder(std::initializer_list<T> inputs = {}, StateIdx size = 0): Builder(views::all(inputs), size) {}
+            Builder(std::initializer_list<T> inputs = {}, StateIdx size = 0): Builder(std::ranges::views::all(inputs), size) {}
             
             /**
              * @brief Creates a builder with `size` states.
              */
-            Builder(StateIdx size): Builder(views::empty<T>, size) {}
+            Builder(StateIdx size): Builder(std::ranges::views::empty<T>, size) {}
 
             /**
              * @brief Returns the number of states.
@@ -949,7 +944,7 @@ namespace tfl {
              * @brief Returns \f$ T^{-} \f$.
              */
             auto alphabet() const {
-                return transform_view(_transitions, [](auto p){ return p.first; });
+                return std::ranges::transform_view(_transitions, [](auto p){ return p.first; });
             }
 
             /**
@@ -1019,7 +1014,7 @@ namespace tfl {
              * @brief Sets whether \f$ \textup{states} \subset F \f$.
              * @exception std::invalid_argument If \f$ \textup{states} \not\subset Q \f$
              */
-            template<range_of<StateIdx> R>
+            template<input_range_of<StateIdx> R>
             Builder& set_acceptance(R&& states, bool value) {
                 for(auto state: states) {
                     check_state(state);
@@ -1033,7 +1028,7 @@ namespace tfl {
              * @exception std::invalid_argument If \f$ \textup{states} \not\subset Q \f$
              */
             Builder& set_acceptance(std::initializer_list<StateIdx> states, bool value) {
-                return set_acceptance(views::all(states), value);
+                return set_acceptance(std::ranges::views::all(states), value);
             }
             ///@}
 
@@ -1054,7 +1049,7 @@ namespace tfl {
                 return *this;
             }
 
-            template<range_of<StateIdx> R>
+            template<input_range_of<StateIdx> R>
             Builder& add_transitions(StateIdx const& state, T const& input, R&& to) {
                 check_state(state);
                 check_input(input);
@@ -1064,7 +1059,7 @@ namespace tfl {
             }
 
             Builder& add_transitions(StateIdx const& state, std::initializer_list<StateIdx> to) {
-                return add_transitions(state, views::all(to));
+                return add_transitions(state, std::ranges::views::all(to));
             }
             ///@}
 
@@ -1083,7 +1078,7 @@ namespace tfl {
                 return *this;
             }
 
-            template<range_of<StateIdx> R>
+            template<input_range_of<StateIdx> R>
             Builder& add_epsilon_transitions(StateIdx const& state, R&& to) {
                 check_state(state);
                 check_states(to);
@@ -1092,7 +1087,7 @@ namespace tfl {
             }
 
             Builder& add_epsilon_transitions(StateIdx const& state, std::initializer_list<StateIdx> to) {
-                return add_epsilon_transitions(state, views::all(to));
+                return add_epsilon_transitions(state, std::ranges::views::all(to));
             }
             ///@}
 
@@ -1111,7 +1106,7 @@ namespace tfl {
                 return *this;
             }
 
-            template<range_of<StateIdx> R>
+            template<input_range_of<StateIdx> R>
             Builder& add_unknown_transitions(StateIdx const& state, R&& to) {
                 check_state(state);
                 check_states(to);
@@ -1120,7 +1115,7 @@ namespace tfl {
             }
 
             Builder& add_unknown_transitions(StateIdx const& state, std::initializer_list<StateIdx> to) {
-                return add_unknown_transitions(state, views::all(to));
+                return add_unknown_transitions(state, std::ranges::views::all(to));
             }
             ///@}
 
@@ -1181,17 +1176,17 @@ namespace tfl {
                 StateIdx offset = state_count();
                 auto tr = [offset](std::set<StateIdx> indices){ 
                     std::set<StateIdx> result;
-                    transform(indices, std::inserter(result, result.end()), [offset](StateIdx idx){ return idx + offset; }); 
+                    std::ranges::transform(indices, std::inserter(result, result.end()), [offset](StateIdx idx){ return idx + offset; }); 
                     return result;
                 };
                 
                 for(auto& p: _transitions) {
-                    transform(that.transitions(p.first), std::back_inserter(p.second), tr);
+                    std::ranges::transform(that.transitions(p.first), std::back_inserter(p.second), tr);
                 }
 
-                transform(that._unknown_transitions, std::back_inserter(_unknown_transitions), tr);
-                transform(that._epsilon_transitions, std::back_inserter(_epsilon_transitions), tr);
-                copy(that._accepting_states, std::back_inserter(_accepting_states));
+                std::ranges::transform(that._unknown_transitions, std::back_inserter(_unknown_transitions), tr);
+                std::ranges::transform(that._epsilon_transitions, std::back_inserter(_epsilon_transitions), tr);
+                std::ranges::copy(that._accepting_states, std::back_inserter(_accepting_states));
 
                 return { *this, offset };
             }
@@ -1234,7 +1229,7 @@ namespace tfl {
             DFA<T>::Builder make_deterministic() {
                 epsilon_elimination();
 
-                auto inputs = transform_view(_transitions, [](auto p){ return p.first; });
+                auto inputs = std::ranges::transform_view(_transitions, [](auto p){ return p.first; });
                 auto transition = [this](std::vector<bool> state, T const& input) {
                     std::vector<bool> out(state_count(), false);
 

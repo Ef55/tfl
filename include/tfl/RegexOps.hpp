@@ -470,7 +470,7 @@ namespace tfl {
         return regex.match(matchers::Deriver<T, Eq>{x});
     }
 
-    template<typename T, range_of<T> R, class Eq = std::equal_to<T>>
+    template<typename T, input_range_of<T> R, class Eq = std::equal_to<T>>
     Regex<T> derive(R&& string, Regex<T> const& r) {
         auto res = r;
         for(

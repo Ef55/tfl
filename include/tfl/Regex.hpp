@@ -393,10 +393,10 @@ namespace tfl {
         /**
          * @brief Makes a regex which only accept the specified sequence.
          */
-        template<range_of<T> C>
-        static Regex<T> word(C const& range_of) {
+        template<input_range_of<T> C>
+        static Regex<T> word(C const& range) {
             Regex<T> result = Regex<T>::epsilon();
-            for(T const& lit : range_of) {
+            for(T const& lit : range) {
                 result = result - Regex<T>::literal(lit);
             }
 
@@ -406,17 +406,17 @@ namespace tfl {
         /**
          * @brief Makes a regex which only accept the specified sequence.
          */
-        static Regex<T> word(std::initializer_list<T> const& range_of) {
-            return word<std::initializer_list<T>>(range_of);
+        static Regex<T> word(std::initializer_list<T> const& range) {
+            return word<std::initializer_list<T>>(range);
         }
 
         /**
          * @brief Makes a regex which accepts any of the literal passed as argument.
          */
-        template<range_of<T> C>
-        static Regex<T> any_of(C const& range_of) {
+        template<input_range_of<T> C>
+        static Regex<T> any_of(C const& range) {
             Regex<T> result = Regex<T>::empty();
-            for(T const& lit : range_of) {
+            for(T const& lit : range) {
                 result = result | Regex<T>::literal(lit);
             }
 
@@ -426,10 +426,10 @@ namespace tfl {
         /**
          * @brief Makes a regex which accepts any sequence accepted by one of the regex passed as argument.
          */
-        template<range_of<Regex<T>> C>
-        static Regex<T> any_of(C const& range_of) {
+        template<input_range_of<Regex<T>> C>
+        static Regex<T> any_of(C const& range) {
             Regex<T> result = Regex<T>::empty();
-            for(Regex<T> const& regex : range_of) {
+            for(Regex<T> const& regex : range) {
                 result = result | regex;
             }
 
@@ -440,8 +440,8 @@ namespace tfl {
          * @brief Calls one of the other overloads of `any_of` depending on the type `C`.
          */
         template<typename C>
-        static Regex<T> any_of(std::initializer_list<C> const& range_of) {
-            return any_of<std::initializer_list<C>>(range_of);
+        static Regex<T> any_of(std::initializer_list<C> const& range) {
+            return any_of<std::initializer_list<C>>(range);
         }
 
         /**

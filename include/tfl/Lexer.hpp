@@ -207,7 +207,7 @@ namespace tfl {
             }
 
         public:
-            template<std::ranges::input_range Range>
+            template<input_range_of<Rule<T, Regex<T>, R>> Range>
             SimpleDerivationLexer(Range&& rules, Regex<T> newline = Regex<T>::empty()): 
             _rules(std::ranges::cbegin(rules), std::ranges::cend(rules)), _nl(newline) {}
         };
@@ -235,7 +235,7 @@ namespace tfl {
             }
 
         public:
-            template<std::ranges::input_range Range>
+            template<input_range_of<Rule<T, Regex<T>, R>> Range>
             SimpleDFALexer(Range&& rules, Regex<T> newline = Regex<T>::empty()): 
             _rules(), 
             _nl{make_dfa(newline)} 
@@ -365,7 +365,7 @@ namespace tfl {
          * @param rules Rules specifying the lexer.
          * @param newline Regex defining a newline.
          */
-        template<range_of<Rule<T, Regex<T>, R>> Range>
+        template<input_range_of<Rule<T, Regex<T>, R>> Range>
         static Lexer<T, Positioned<R>> make_derivation_lexer(Range&& rules, Regex<T> newline = Regex<T>::empty()) {
             return Lexer<T, Positioned<R>>(new SimpleDerivationLexer<T, R>(std::forward<Range>(rules), newline));
         }
@@ -378,7 +378,7 @@ namespace tfl {
          * @param rules Rules specifying the lexer.
          * @param newline Regex defining a newline.
          */
-        template<range_of<Rule<T, Regex<T>, R>> Range>
+        template<input_range_of<Rule<T, Regex<T>, R>> Range>
         static Lexer<T, Positioned<R>> make_dfa_lexer(Range rules, Regex<T> newline = Regex<T>::empty()) {
             return Lexer<T, Positioned<R>>(new SimpleDFALexer<T, R>(std::forward<Range>(rules), newline));
         }
@@ -424,7 +424,7 @@ namespace tfl {
         /**
          * @brief Applies the lexer to an input sequence.
          */
-        template<std::ranges::input_range Range>
+        template<input_range_of<Rule<T, Regex<T>, R>> Range>
         std::vector<R> operator()(Range&& range) const {
             InputBuffer<T> input(std::forward<Range>(range));
             return _lexer->apply(input);
