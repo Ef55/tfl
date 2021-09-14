@@ -9,6 +9,7 @@ set(TEST_SRC
     "lexer/NFA.cpp"
     "parser/Syntax.cpp"
     "utils/InputBuffer.cpp"
+    "utils/Lazy.cpp"
 )
 
 find_package(Catch2 3 REQUIRED)
