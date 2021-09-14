@@ -7,8 +7,7 @@ set(TEST_SRC
     "lexer/RegexAlphabet.cpp"
     "lexer/DFA.cpp"
     "lexer/NFA.cpp"
-    "parser/Parser.cpp"
-    "parser/Parsers.cpp"
+    "parser/Syntax.cpp"
     "utils/InputBuffer.cpp"
 )
 
