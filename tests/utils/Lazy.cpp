@@ -235,3 +235,9 @@ TEST_CASE("Lazy is a monad", "[lazy]") {
         }
     }
 }
+
+TEST_CASE("Lazy throws on recursive definition", "[lazy]") {
+    Lazy<int> lazy = Lazy<int>::computation([&lazy](){ return lazy.get() + 1; });
+
+    REQUIRE_THROWS_AS( lazy.get(), std::logic_error );
+}

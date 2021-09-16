@@ -46,12 +46,19 @@ namespace tfl {
     class Lazy final {
         using Computation = std::function<T()>;
         using Value = T;
-        using Var = std::variant<Value, Computation>;
+        struct Lock {};
+        using Var = std::variant<Lock, Value, Computation>;
 
         std::shared_ptr<Var> _state;
 
         Lazy(Computation const& computation): _state(std::make_shared<Var>(computation)) {}
         Lazy(Value const& value): _state(std::make_shared<Var>(value)) {}
+
+        void check_lock() const {
+            if(std::holds_alternative<Lock>(*_state)) {
+                throw std::logic_error("Lazy value accessed during its initialization.");
+            }
+        }
 
     public:
         using ValueType = T;
@@ -114,7 +121,10 @@ namespace tfl {
          */
         void kick() const {
             if(!evaluated()) {
-                *_state = std::get<Computation>(*_state)();
+                check_lock();
+                auto computation = std::get<Computation>(*_state);
+                *_state = Lock{};
+                *_state = computation();
             }
         }
 
