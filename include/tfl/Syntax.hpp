@@ -4,6 +4,7 @@
 #include <memory>
 #include <variant>
 
+#include "Lazy.hpp"
 #include "Concepts.hpp"
 #include "SyntaxOps.hpp"
 
@@ -38,8 +39,8 @@ namespace tfl {
         };
 
         struct Disjunction final {
-            SyntaxStructure<T> const _left;
-            SyntaxStructure<T> const _right;
+            Lazy<SyntaxStructure<T>> const _left;
+            Lazy<SyntaxStructure<T>> const _right;
 
             template<typename MR>
             MR match(matchers::syntax::StructureBase<T, MR> const& matcher) const { return matcher.disjunction(_left, _right); }
@@ -48,8 +49,8 @@ namespace tfl {
         };
 
         struct Sequence final {
-            SyntaxStructure<T> const _left;
-            SyntaxStructure<T> const _right;
+            Lazy<SyntaxStructure<T>> const _left;
+            Lazy<SyntaxStructure<T>> const _right;
 
             template<typename MR>
             MR match(matchers::syntax::StructureBase<T, MR> const& matcher) const { return matcher.sequence(_left, _right); }
@@ -58,7 +59,7 @@ namespace tfl {
         };
 
         struct Map final {
-            SyntaxStructure<T> const _underlying;
+            Lazy<SyntaxStructure<T>> const _underlying;
 
             template<typename MR>
             MR match(matchers::syntax::StructureBase<T, MR> const& matcher) const { return matcher.map(_underlying); }
@@ -121,12 +122,14 @@ namespace tfl {
     namespace {
         template<typename T, typename R>
         struct SyntaxBase {
+            Lazy<SyntaxStructure<T>> _structure;
+            SyntaxBase(): _structure(Lazy<SyntaxStructure<T>>::computation([this](){ return this->generate_structure(); })) {}
             virtual ~SyntaxBase() = default;
-            virtual SyntaxStructure<T> structure() const final {
-                return generate_structure();
-            }
         
             virtual SyntaxStructure<T> generate_structure() const = 0;
+            virtual SyntaxStructure<T> structure() const final {
+                return SyntaxStructure<T>(_structure.get());
+            }
         };
 
         template<typename T>
@@ -158,7 +161,10 @@ namespace tfl {
             Disjunction(Syntax<T, R> const& l, Syntax<T, R> const& r): _left(l), _right(r) {}
 
             SyntaxStructure<T> generate_structure() const override {
-                return SyntaxStructure<T>(typename SyntaxStructure<T>::Disjunction(_left.structure(), _right.structure()));
+                return SyntaxStructure<T>(typename SyntaxStructure<T>::Disjunction(
+                    Lazy<SyntaxStructure<T>>::computation([*this](){ return _left.structure(); }), 
+                    Lazy<SyntaxStructure<T>>::computation([*this](){ return _right.structure(); })
+                ));
             }
         };
 
@@ -169,7 +175,10 @@ namespace tfl {
             Sequence(Syntax<T, L> const& l, Syntax<T, R> const& r): _left(l), _right(r) {}
 
             SyntaxStructure<T> generate_structure() const override {
-                return SyntaxStructure<T>(typename SyntaxStructure<T>::Sequence(_left.structure(), _right.structure()));
+                return SyntaxStructure<T>(typename SyntaxStructure<T>::Sequence(
+                    Lazy<SyntaxStructure<T>>::computation([*this](){ return _left.structure(); }), 
+                    Lazy<SyntaxStructure<T>>::computation([*this](){ return _right.structure(); })
+                ));
             }
         };
 
@@ -181,7 +190,9 @@ namespace tfl {
             Map(Syntax<T, U> const& u, F&& map): _underlying(u), _map(std::forward<F>(map)) {}
 
             SyntaxStructure<T> generate_structure() const override {
-                return SyntaxStructure<T>(typename SyntaxStructure<T>::Map(_underlying.structure()));
+                return SyntaxStructure<T>(typename SyntaxStructure<T>::Map(
+                    Lazy<SyntaxStructure<T>>::computation([*this](){ return _underlying.structure(); })
+                ));
             }
         };
 
@@ -202,8 +213,8 @@ namespace tfl {
 
                 // Stop gap to avoid inifinite recursion
                 // TODO: restore
-                return SyntaxStructure<T>(typename SyntaxStructure<T>::Epsilon());
-                //return SyntaxStructure<T>(typename SyntaxStructure<T>::Recursive(p->generate_structure()));
+                //return SyntaxStructure<T>(typename SyntaxStructure<T>::Epsilon());
+                return SyntaxStructure<T>(typename SyntaxStructure<T>::Recursive(p->structure()));
             }
         };
     }

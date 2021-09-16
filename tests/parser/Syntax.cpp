@@ -15,9 +15,10 @@ using SyntaxStructure = tfl::SyntaxStructure<char>;
 class Matcher: public tfl::matchers::syntax::MutableStructureBase<char, void> {
     using tfl::matchers::syntax::MutableStructureBase<char, void>::rec;
     std::ostream& stream;
+    int max_depth;
 
 public:
-    Matcher(std::ostream& s): stream(s) {}
+    Matcher(std::ostream& s, int max): stream(s), max_depth(max) {}
 
     void elem(std::function<bool(char const&)> const& predicate) override {
         stream << 'a';
@@ -45,7 +46,15 @@ public:
         stream << ')';
     }
     void recursive(SyntaxStructure const& underlying) override {
-        stream << "rec";
+        if(max_depth == 0) {
+            stream << "rec";
+        }
+        else {
+            --max_depth;
+            stream << "rec(";
+            rec(underlying);
+            stream << ')';
+        }
     }
 };
 
@@ -58,7 +67,7 @@ TEST_CASE("Bench", "[Bench]") {
 
     Syntax<int> s = rec;
 
-    s.match(Matcher{std::cout});
+    s.match(Matcher{std::cout, 1});
 
 
 
