@@ -12,7 +12,7 @@ using Recursive = tfl::Recursive<char, R>;
 using SyntaxStructure = tfl::SyntaxStructure<char>;
 
 #include <iostream>
-class Matcher: public tfl::matchers::syntax::MutableStructureBase<char, void> {
+class Matcher: public tfl::matchers::syntax::RecursionMemoizer<char> {
     using tfl::matchers::syntax::MutableStructureBase<char, void>::rec;
     std::ostream& stream;
     int max_depth;
@@ -45,7 +45,7 @@ public:
         rec(underlying);
         stream << ')';
     }
-    void recursive(SyntaxStructure const& underlying) override {
+    void new_recursive(SyntaxStructure const& underlying, tfl::RecId const& id) override {
         if(max_depth == 0) {
             stream << "rec";
         }
@@ -67,7 +67,7 @@ TEST_CASE("Bench", "[Bench]") {
 
     Syntax<int> s = rec;
 
-    s.match(Matcher{std::cout, 1});
+    s.match(Matcher{std::cout, 3});
 
 
 

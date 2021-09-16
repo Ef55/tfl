@@ -13,6 +13,7 @@ namespace tfl {
     template<typename, typename> class Syntax;
 
 
+
     template<typename T>
     class SyntaxStructure final {
         template<typename> friend class Elem;
@@ -81,10 +82,14 @@ namespace tfl {
             Recursive() = delete;
             Recursive(SyntaxStructure<T> const str): _underlying(str._syntax) {}
 
+            RecId id() const {
+                return RecId(_underlying.lock().get());
+            }
+
             template<typename MR>
-            MR match(matchers::syntax::StructureBase<T, MR> const& matcher) const { return matcher.recursive(SyntaxStructure<T>(_underlying.lock())); }
+            MR match(matchers::syntax::StructureBase<T, MR> const& matcher) const { return matcher.recursive(SyntaxStructure<T>(_underlying.lock()), id()); }
             template<typename MR>
-            MR match(matchers::syntax::MutableStructureBase<T, MR>& matcher) const { return matcher.recursive(SyntaxStructure<T>(_underlying.lock())); }
+            MR match(matchers::syntax::MutableStructureBase<T, MR>& matcher) const { return matcher.recursive(SyntaxStructure<T>(_underlying.lock()), id()); }
         };
 
         using Var = std::variant<
@@ -211,9 +216,6 @@ namespace tfl {
                     throw std::logic_error("Cannot generate generate_structure of an uninitialized recursive syntax.");
                 }
 
-                // Stop gap to avoid inifinite recursion
-                // TODO: restore
-                //return SyntaxStructure<T>(typename SyntaxStructure<T>::Epsilon());
                 return SyntaxStructure<T>(typename SyntaxStructure<T>::Recursive(p->structure()));
             }
         };
